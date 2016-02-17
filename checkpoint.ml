@@ -40,7 +40,7 @@ let get_bytecode_nums pbir (cn, ms) =
 	match x with
 	| Ifd ((_,_,_),g) -> Some ((pc_ir2bc bir).(i+1), (pc_ir2bc bir).(g))
 	| _ -> None) (code bir) in
-    (* TODO:  Now get the pps for the *)
+    (* TODO:  Now get the pps for the loops and add it to lnums *)
     lnums
   with
   | Not_found -> raise (Internal ("Cannot find class_method:" ^ (cn_name cn) ^"."^ (ms_name ms)))
