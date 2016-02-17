@@ -3,6 +3,7 @@ open Javalib
 open JBasics
 open JCode
 open Sawja_pack
+open JBirSSA
 module Stack = BatStack
 module Array = BatArray
 module List = BatList
@@ -29,6 +30,22 @@ Note:
 2.) Should be a fully qualified name, .e.g,: java.lang.Object";;
 
 
+let get_bytecode_nums pbir (cn, ms) = 
+  try
+    let first_pp = JControlFlow.PP.get_first_pp pbir cn ms in
+    let bir = JControlFlow.PP.get_ir first_pp in
+    (* TODO:  First get the pps for the if branches *)
+    let lnums = Array.mapi
+      (fun i x ->
+	match x with
+	| Ifd ((_,_,_),g) -> Some ((pc_ir2bc bir).(i+1), (pc_ir2bc bir).(g))
+	| _ -> None) (code bir) in
+    (* TODO:  Now get the pps for the *)
+    lnums
+  with
+  | Not_found -> raise (Internal ("Cannot find class_method:" ^ (cn_name cn) ^"."^ (ms_name ms)))
+  | JControlFlow.PP.NoCode (cn, ms) -> Array.make 1 None
+
 let main = 
   try
     let args = Sys.argv in
@@ -41,24 +58,26 @@ let main =
       cp (make_cms (make_cn cn) JProgram.main_signature) in
     (* Convert it into JBIR format *)
     let pbir = JProgram.map_program2
-      (fun _ -> A3BirSSA.transform ~bcv:false ~ch_link:false) 
-      (Some (fun code pp -> (A3BirSSA.pc_ir2bc code).(pp)))
+      (fun _ -> transform ~bcv:false ~ch_link:false) 
+      (Some (fun code pp -> (pc_ir2bc code).(pp)))
       prta in
 
-    let obj = JProgram.get_node pbir (make_cn cn) in
-    (* let mobj = JProgram.get_concrete_method obj JProgram.main_signature in *)
-    (* JPrint.print_class (JProgram.to_ioc obj) JBir.print stdout; *)
-    (* Let us try using the control-flow graph *)
-    try
-      let bir_pp = JControlFlow.PP.get_first_pp_wp obj JProgram.main_signature in
-      let bir_ir = JControlFlow.PP.get_ir bir_pp in
-      (* TODO: Dump a file with line numbers at bytecode level and the
-	 places where checkpoints need to be inserted.*)
-      List.iter print_endline (A3BirSSA.print ~phi_simpl:false bir_ir)
-    with
-    | JControlFlow.PP.NoCode (cn, ms) -> print_endline ((cn_name cn) ^ ", " ^ (ms_name ms))
-      
-    
+    (* TODO: Dump a file with line numbers at bytecode level and the
+       places where checkpoints need to be inserted.*)
+    let callgraph = JProgram.get_callgraph_from_entries prta [(make_cms (make_cn cn) JProgram.main_signature)] in
+    (* Put methods into the methodset *)
+    let methods_to_explore = List.fold_left (fun s ((cn1, ms1, _), (cn2, ms2)) ->
+      ClassMethodSet.add (make_cms cn2 ms2) (ClassMethodSet.add (make_cms cn1 ms1) s))
+      ClassMethodSet.empty callgraph in
+    let methods_to_explore = List.map cms_split (ClassMethodSet.elements methods_to_explore) in
+    (* TODO: For each of the methods load them and dump the checkpoint
+     line number at Bytecode level*)
+    let bytecode_nums = List.map (get_bytecode_nums pbir) methods_to_explore in
+    List.iter2 (fun a (cn, ms) ->
+      let () = (cn_name cn) ^ "." ^ (ms_name ms) |> print_endline in
+      Array.iter (function
+      | Some (x, y) -> (x |> string_of_int) ^ "," ^ (y |> string_of_int) |> print_endline
+      | None -> ()) a) bytecode_nums methods_to_explore
   with
   | NARGS -> ()
      
