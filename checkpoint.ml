@@ -2,12 +2,12 @@ open Javalib_pack
 open Javalib
 open JBasics
 open JCode
+module JL = JClassLow
 open Sawja_pack
 open JBirSSA
 module Stack = BatStack
 module Array = BatArray
 module List = BatList
-module JL = JClassLow
 module Enum = BatEnum
 module File = BatFile
 module Hashtbl = BatHashtbl
@@ -34,34 +34,35 @@ let get_bytecode_nums pbir (cn, ms) =
   try
     let first_pp = JControlFlow.PP.get_first_pp pbir cn ms in
     let bir = JControlFlow.PP.get_ir first_pp in
-    (* DEBUG *)
-    let () = print_endline ((cn_name cn) ^ "." ^ (ms_name ms)) in
-    let () = List.iter print_endline (print ~phi_simpl:false bir) in
+    (* XXX: DEBUG *)
+    (* let () = print_endline ((cn_name cn) ^ "." ^ (ms_name ms)) in *)
+    (* let () = List.iter print_endline (print ~phi_simpl:false bir) in *)
     (* TODO:  First get the pps for the if branches *)
     let lnums = Array.mapi
       (fun i x ->
 	match x with
-	| Ifd ((_,_,_),g) -> Some ((pc_ir2bc bir).(i+1), (pc_ir2bc bir).(g))
+	| Ifd ((_,_,_),g) -> Some (pc_ir2bc bir).(g-1)
 	| _ -> None) (code bir) in
     (* TODO:  Now get the pps for the loops and add it to lnums *)
     let loop_fbbnums = Array.mapi
-			 (fun i x ->
-			  if (Array.length x) > 1 then
-			    (* This means there are more than 1 predecessor at this point *)
-			    if (Array.exists ((>) i) x) && (Array.exists ((<) i) x) then
-			      (* XXX:  This means it is the first block of the loop *)
-			      if i > 0 then
-				Some ((pc_ir2bc bir).(i-1))
-			      else
-				Some ((pc_ir2bc bir).(i))
-			    else
-			      None
-			  else
-			    None) (preds bir) in
-    (lnums, loop_fbbnums)
+      (fun i x ->
+	if (Array.length x) > 1 then
+	  (* This means there are more than 1 predecessor at this point *)
+	  if (Array.exists ((>) i) x) && (Array.exists ((<) i) x) then
+	    (* XXX:  This means it is the first block of the loop *)
+	    if i > 0 then
+	      Some ((pc_ir2bc bir).(i-1))
+	    else
+	      Some ((pc_ir2bc bir).(i))
+	  else
+	    None
+	else
+	  None) (preds bir) in
+    Array.append lnums loop_fbbnums
   with
   | Not_found -> raise (Internal ("Cannot find class_method:" ^ (cn_name cn) ^"."^ (ms_name ms)))
-  | JControlFlow.PP.NoCode (cn, ms) -> Array.make 1 None, Array.make 1 None
+  | JControlFlow.PP.NoCode (cn, ms) -> Array.make 1 None
+
 
 let main = 
   try
@@ -89,24 +90,32 @@ let main =
     let methods_to_explore = List.map cms_split (ClassMethodSet.elements methods_to_explore) in
     (* TODO: For each of the methods load them and dump the checkpoint
      line number at Bytecode level*)
-    let bytecode_nums = List.map (get_bytecode_nums pbir) methods_to_explore in
-    let (bytecode_nums, fb_nums) = List.split bytecode_nums in
-    (* XXX:  IF OUTGOING EDGE CHECKPOINTS *)
-    let () = print_endline "IF CHECKPOINTS" in
-    let () =
-      List.iter2 (fun a (cn, ms) ->
-		  let () = (cn_name cn) ^ "." ^ (ms_name ms) |> print_endline in
-		  Array.iter (function
-			       | Some (x, y) -> (x |> string_of_int) ^ "," ^ (y |> string_of_int) |> print_endline
-			       | None -> ()) a) bytecode_nums methods_to_explore in
-
-    (* XXX:  FIRST BASIC BLOCK OF LOOP CHECKPOINTS*)
-    let () = print_endline "FIRST BB OF LOOP CHECKPOINTS" in
+    let possible_checkpoints = List.map (get_bytecode_nums pbir) methods_to_explore in
+    (* XXX:  DEBUG *)
+    let () = List.iter2 (fun a (cn, ms) ->
+      let () = print_endline ((cn_name cn) ^ "." ^ (ms_name ms)) in
+      Array.iter(function
+      | Some x -> x |> string_of_int |> print_endline
+      | None -> ()) a) possible_checkpoints methods_to_explore in
+    let possible_checkpoints =
+      (* FIXME: We need to manually calculate the bytecode offset at the
+	 lower level bytecode representation!! *)
+      List.map2 (fun a (cn, ms) ->
+    	let pp = JControlFlow.PP.get_first_pp prta cn ms in
+    	Array.map (function
+    	| Some x ->
+    	   let pp = JControlFlow.PP.goto_absolute pp x in
+    	   let pp = JControlFlow.PP.goto_relative pp 1 in
+    	   Some (JControlFlow.PP.get_pc pp)
+    	| None -> None) a) possible_checkpoints methods_to_explore in
+    let () = print_endline "IF AND LOOP FIRST BB CHECKPOINTS" in
+    (* XXX:  DEBUG *)
     List.iter2 (fun a (cn, ms) ->
-      let () = (cn_name cn) ^ "." ^ (ms_name ms) |> print_endline in
-      Array.iter (function
-      | Some x -> (x |> string_of_int) |> print_endline
-      | None -> ()) a) fb_nums methods_to_explore
+      let () = print_endline ((cn_name cn) ^ "." ^ (ms_name ms)) in
+      Array.iter(function
+      | Some x -> x |> string_of_int |> print_endline
+      | None -> ()) a) possible_checkpoints methods_to_explore
+
   with
   | NARGS -> ()
      
