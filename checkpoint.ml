@@ -2,9 +2,9 @@ open Javalib_pack
 open Javalib
 open JBasics
 open JCode
-module JL = JClassLow
 open Sawja_pack
 open JBirSSA
+module JL = JClassLow
 module Stack = BatStack
 module Array = BatArray
 module List = BatList
@@ -23,7 +23,6 @@ exception Cant_handle of string
 
 let bj1 = "com.jopdesign.sys.JVM";;
 let bj2 = "com.jopdesign.sys.GC";;
-let addmethods = ref false;;
 
 let usage_msg = "Usage: checkpoint class-path class-name
 Note:
@@ -66,10 +65,15 @@ let get_bytecode_nums pbir (cn, ms) =
 
 let main = 
   try
-    let args = Sys.argv in
-    let (cp, cn) =
-      if Array.length args <> 3 then let () = print_endline usage_msg in raise NARGS
-      else (args.(1),args.(2)) in
+    let args = DynArray.make 2 in
+    let sourcep = ref "" in
+    let speclist = [
+      ("-sourcepath", Arg.String (fun x -> sourcep := x), "Source path for parsing loop count");
+    ] in
+    let () = Arg.parse speclist (fun x -> DynArray.add args x) (usage_msg^"\n[OPTION]:") in
+    let (cp, cn) = 
+      if DynArray.length args <> 2 then let () = print_endline usage_msg; Arg.usage speclist "[OPTION]:" in exit 1
+      else (DynArray.get args 0,DynArray.get args 1) in
     (* Need to build all the other entry points so that other classes are also parsed!! *)
     let (prta,_) = JRTA.parse_program
       ~instantiated:[]
@@ -119,12 +123,17 @@ let main =
 
     let () = print_endline "IF AND LOOP FIRST BB CHECKPOINTS" in
     (* XXX:  DEBUG *)
-    List.iter2 (fun a (cn, ms) ->
-      let () = print_endline ((cn_name cn) ^ "." ^ (ms_name ms)) in
-      Array.iter(function
-      | Some x -> x |> string_of_int |> print_endline
-      | None -> ()) a) possible_checkpoints methods_to_explore
+    let () =
+      List.iter2 (fun a (cn, ms) ->
+	let () = print_endline ((cn_name cn) ^ "." ^ (ms_name ms)) in
+	Array.iter(function
+	| Some x -> x |> string_of_int |> print_endline
+	| None -> ()) a) possible_checkpoints methods_to_explore in
 
+    (* TODO:  Now get the wcet of the various methods *)
+    let l = LW.parsewca !sourcep in
+    let mm = LW.internal_main cp cn l true in
+    ()
   with
   | NARGS -> ()
      
