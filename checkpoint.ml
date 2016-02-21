@@ -31,9 +31,10 @@ Note:
 2.) Should be a fully qualified name, .e.g,: java.lang.Object";;
 
 let get_wcet_method cms mm = 
-  let () = DynArray.filter (fun (n, _) -> cms_equal cms n) mm in
-  if (DynArray.length mm) <> 0 then
-    let (_, (i, m)) = DynArray.get mm 0 in
+  let mmc = DynArray.copy mm in
+  let () = DynArray.filter (fun (n, _) -> cms_equal cms n) mmc in
+  if (DynArray.length mmc) <> 0 then
+    let (_, (i, m)) = DynArray.get mmc 0 in
     BatNum.to_int i + BatNum.to_int m
   else
     let (cn, ms) = (cms_split cms) in

@@ -1,0 +1,30 @@
+#+TITLE: Questions & TODO
+#+DATE: <2016-02-21 Sun>
+#+AUTHOR: Avinash Malik
+#+EMAIL: avinash.malik@auckland.ac.nz
+#+OPTIONS: ':nil *:t -:t ::t <:t H:3 \n:nil ^:t arch:headline author:t
+#+OPTIONS: c:nil creator:comment d:(not "LOGBOOK") date:t e:t email:nil
+#+OPTIONS: f:t inline:t num:t p:nil pri:nil stat:t tags:t tasks:t tex:t
+#+OPTIONS: timestamp:t toc:nil todo:t |:t
+#+CREATOR: Emacs 24.5.1 (Org mode 8.2.10)
+#+DESCRIPTION:
+#+EXCLUDE_TAGS: noexport
+#+KEYWORDS:
+#+LANGUAGE: en
+#+SELECT_TAGS: export
+
+* Questions for Manish:
+** How did you include the wcrc of the checkpoints until now in your preliminary work?
+** How do you plan to include the checkpoint instruction at the low-level?
+** Right now the check-point algorithm only gives possible bytecodes where the 
+   checkpoint can be included with the wcrc value to the end of the
+   method only.
+** There are some issues with the wcet-cache when println is called!
+** Right now the wcet is a very large overestimate, because the if-stmts 
+   are not being handeled correctly.
+
+* To complete
+** TODO Write the CFG generator for the methods.
+   DEADLINE: <2016-02-28 Sun>
+** TODO Write the wcet/wcrc analysis using the CFG
+   DEADLINE: <2016-03-06 Sun>
