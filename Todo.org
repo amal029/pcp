@@ -16,6 +16,7 @@
 * Questions for Manish:
 ** How did you include the wcrc of the checkpoints until now in your preliminary work?
 ** How do you plan to include the checkpoint instruction at the low-level?
+*** Introduce Native.wcrc method call the the correct byte and then take care of gotos/if offsets.
 ** Right now the check-point algorithm only gives possible bytecodes where the 
    checkpoint can be included with the wcrc value to the end of the
    method only.
@@ -24,6 +25,8 @@
    are not being handeled correctly.
 
 * To complete
+** TODO Inline all code manually and also make main and init methods for examples.
+   DEADLINE: <2016-02-23 Tue>
 ** TODO Write the CFG generator for the methods.
    DEADLINE: <2016-02-28 Sun>
 ** TODO Write the wcet/wcrc analysis using the CFG

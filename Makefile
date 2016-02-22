@@ -1,7 +1,7 @@
 CCC ?= ocamlopt -g -S -inline 20 -nodynlink -annot -ccopt -O3 -ccopt -mtune=native -ccopt -flto
 WCMADIR ?= /home/amal029/AUCKLAND_WORK/Nadeem/TDMA
 LIBWCMA ?= libWcma.cmxa
-SRC=checkpoint.ml
+SRC=cfg.ml checkpoint.ml
 
 all: checkpoint
 
