@@ -13,6 +13,7 @@ module Enum = BatEnum
 module File = BatFile
 module Hashtbl = BatHashtbl
 module LW = LibWcma
+module CFG = Cfg
 
 let (>>) f g x = (f(g x))
 
@@ -418,8 +419,8 @@ let get_bytecode_nums pbir (cn, ms) =
     let first_pp = JControlFlow.PP.get_first_pp pbir cn ms in
     let bir = JControlFlow.PP.get_ir first_pp in
     (* XXX: DEBUG *)
-    (* let () = print_endline ((cn_name cn) ^ "." ^ (ms_name ms)) in *)
-    (* let () = List.iter print_endline (print ~phi_simpl:false bir) in *)
+    let () = print_endline ((cn_name cn) ^ "." ^ (ms_name ms)) in
+    let () = List.iter print_endline (print ~phi_simpl:false bir) in
     (* TODO:  First get the pps for the if branches *)
     let lnums = Array.mapi
       (fun i x ->
@@ -473,8 +474,12 @@ let main =
     (* TODO: Dump a file with line numbers at bytecode level and the
        places where checkpoints need to be inserted.*)
     let callgraph = JProgram.get_callgraph_from_entries
-      prta [(make_cms (make_cn cn) JProgram.main_signature)] in
-    let () = JProgram.store_callgraph callgraph "/tmp/Callgraph.txt" in
+      (* prta [(make_cms (make_cn cn) JProgram.main_signature)] in *)
+      (* FIXME:  This is for Bubble only! *)
+      prta [(make_cms (make_cn cn) (make_ms "mix" [(TBasic `Int); (TObject (TArray (TBasic `Int)))] None))] in
+    (if List.length callgraph <> 1 then
+	let () = JProgram.store_callgraph callgraph "/tmp/Callgraph.txt" in
+	raise (Not_supported "Only a single method allowed, please inline manually, see /tmp/Callgraph.txt"));
     (* Put methods into the methodset *)
     let methods_to_explore = List.fold_left (fun s ((cn1, ms1, _), (cn2, ms2)) ->
       ClassMethodSet.add (make_cms cn2 ms2) (ClassMethodSet.add (make_cms cn1 ms1) s))
@@ -506,23 +511,28 @@ let main =
 	   Some (x + LW.get_size mcode.(x))
     	| None -> None) a) possible_checkpoints methods_to_explore in
 
-    let () = print_endline "IF AND LOOP FIRST BB CHECKPOINTS" in
-    (* XXX:  DEBUG *)
-    let () =
-      List.iter2 (fun a (cn, ms) ->
-	let () = print_endline ((cn_name cn) ^ "." ^ (ms_name ms)) in
-	Array.iter(function
-	| Some x -> x |> string_of_int |> print_endline
-	| None -> ()) a) possible_checkpoints methods_to_explore in
+    (* (\* XXX:  DEBUG *\) *)
+    (* let () = print_endline "IF AND LOOP FIRST BB CHECKPOINTS" in *)
+    (* let () = *)
+    (*   List.iter2 (fun a (cn, ms) -> *)
+    (* 	let () = print_endline ((cn_name cn) ^ "." ^ (ms_name ms)) in *)
+    (* 	Array.iter(function *)
+    (* 	| Some x -> x |> string_of_int |> print_endline *)
+    (* 	| None -> ()) a) possible_checkpoints methods_to_explore in *)
 
     (* TODO:  Now get the wcet of the various methods *)
-    let l = LW.parsewca !sourcep in
-    let mm = LW.internal_main cp cn l true in
+    let method_cfgs =
+      List.map (fun (x,y) -> CFG.build_method_cfg x y pbir) methods_to_explore in
+    (* XXX:  DEBUG *)
+    let () = List.iter (CFG.print_cfg []) method_cfgs in
 
     (* FIXME:  We should convert each method to its CFG before we do this! *)
+    (* TODO:  Print the CFG of the methods from the callgraph *)
     (* XXX: Note that the WCRC calculated here is only until the end of
        the method from the checkpoint at best!*)
-    let cp_wcrc = get_checkpoint_wcrc (methods_to_explore, possible_checkpoints) mm cp in
+    (* let l = LW.parsewca !sourcep in *)
+    (* let mm = LW.internal_main cp cn l true in *)
+    (* let cp_wcrc = get_checkpoint_wcrc (methods_to_explore, possible_checkpoints) mm cp in *)
     ()
   with
   | NARGS -> ()
