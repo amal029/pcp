@@ -29,13 +29,16 @@ and edge = Edge of (bb * bb * int option)
 let rec print_cfg visited cfg =
   let () = print_string ((string_of_int cfg.pps)
 			 ^ "--" ^ (string_of_int cfg.ppe)) in
-  let () = (print_endline >> string_of_int) cfg.wcet in
+  let () = (print_string >> ((^)" ") >> string_of_int) cfg.wcet in
 
   let () =
-    List.iter (function | Edge (_,d,_) ->
+    List.iter (function | Edge (_,d,w) ->
       let () = print_string "\n|-->" in
-      print_string
-	((string_of_int d.pps) ^ "--" ^ (string_of_int d.ppe))) cfg.o in
+      let () = print_string ((string_of_int d.pps) ^ "--"
+			     ^ (string_of_int d.ppe)) in
+      print_string (": " ^
+	(match w with | None -> "-1"
+	| Some x -> (string_of_int x)))) cfg.o in
   let () = print_endline "\n" in
   List.iter
     (function

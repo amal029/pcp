@@ -456,15 +456,17 @@ let rec cfg_wcrc visited cfg =
   if List.is_empty cfg.CFG.o then
     cfg.CFG.wcet
   else
+    let is_back_edge d =
+      match List.Exceptionless.find ((==) d) visited with
+      | Some x -> true
+      | None -> false in
     let edges_not_analyzedp = function
       | CFG.Edge (_,_,Some _) -> false
       | _ -> true in
     let analyze_edges = function
       | CFG.Edge (s,d,None) as t ->
-	 (* TODO:  Only if d is not already visited! *)
-	 (match List.Exceptionless.find ((==) d) visited with
-	  | Some x -> t
-	  | None -> CFG.Edge(s,d, Some (cfg_wcrc (d :: visited) d)))
+	 if is_back_edge d then t
+	 else CFG.Edge(s,d, Some (cfg_wcrc (d :: visited) d))
       | _ as s -> s in
     (if List.exists edges_not_analyzedp cfg.CFG.o then
        let new_edges = List.map analyze_edges cfg.CFG.o in
@@ -474,7 +476,9 @@ let rec cfg_wcrc visited cfg =
       List.map
 	(function
 	  | CFG.Edge (_,_,Some x) -> x
-	  | _ -> raise (Internal "Unexpected type")) cfg.CFG.o in
+	  | CFG.Edge (_,d, None) ->
+	     if is_back_edge d then 0
+	     else raise (Internal "Unexpected type")) cfg.CFG.o in
     cfg.CFG.wcet + List.fold_left max (List.hd edge_wcrcs) (List.tl edge_wcrcs)
 
 let rec method_wcet pbir cp visited mm cfg = 
