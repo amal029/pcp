@@ -41,7 +41,7 @@ let get_wcet_method cms mm =
     let (cn, ms) = (cms_split cms) in
     raise (Internal ("Cannot find the cms: " ^ (cn_name cn) ^ "." ^ (ms_name ms) ^ " in method-wcet cache!"))
 
-let get_wcrc cms code mm const_pool = 
+let get_wcrc code mm const_pool = 
   (* TODO:  Now we convert the code into micro-code and then compute the wcrc *)
   Enum.fold (fun x y ->
     match y with
@@ -112,8 +112,12 @@ let get_wcrc cms code mm const_pool =
        | `Double -> raise (LW.Opcode_Not_Implemented (JDumpLow.opcode op))
        | `Float -> raise (LW.Opcode_Java_Implemented (JDumpLow.opcode op))
        | `Long -> 
-	  x + Array.length [|Ldi;Xor;Stm;Ldi;Xor;Stm;Stm;Stm;Ldm;Ldi;Ushr;Ldm;
-			     Ldi;Ushr;Add;Ldm;Ldi;And;Ldm;Ldi;And;Add;Ldi;Add;Ldi;Shr;Add;Ldi;Ushr;Ldm;Add;Ldm;Add;Ldm;Ldm;Add;Ldi;Add|]
+	  x + Array.length [|Ldi;Xor;Stm;Ldi;Xor;Stm;Stm;Stm;
+			     Ldm;Ldi;Ushr;Ldm;
+			     Ldi;Ushr;
+			     Add;Ldm;Ldi;And;Ldm;Ldi;
+			     And;Add;Ldi;Add;Ldi;Shr;Add;Ldi;Ushr;Ldm;Add;
+			     Ldm;Add;Ldm;Ldm;Add;Ldi;Add|]
        | _ -> x + Array.length [|Sub|])
     | JL.OpMult xx as op->
        (match xx with
@@ -411,7 +415,7 @@ let get_checkpoint_wcrc (mse, cps) mm cp =
 	 let mcode = match mcode with
 	   | Some x -> x.JL.c_code |> Array.enum |> Enum.skip chkp
 	   | None -> raise (Internal ("Unexpected type")) in
-	 Some (get_wcrc (make_cms cn ms) mcode mm cpool)
+	 Some (get_wcrc mcode mm cpool)
       | _ as s -> s) chkp) cps mse
 
 let get_bytecode_nums pbir (cn, ms) = 
@@ -447,6 +451,80 @@ let get_bytecode_nums pbir (cn, ms) =
   | Not_found -> raise (Internal ("Cannot find class_method:" ^ (cn_name cn) ^"."^ (ms_name ms)))
   | JControlFlow.PP.NoCode (cn, ms) -> Array.make 1 None
 
+(* FIXME:  This is without loops! *)
+let rec cfg_wcrc visited cfg = 
+  if List.is_empty cfg.CFG.o then
+    cfg.CFG.wcet
+  else
+    let edges_not_analyzedp = function
+      | CFG.Edge (_,_,Some _) -> false
+      | _ -> true in
+    let analyze_edges = function
+      | CFG.Edge (s,d,None) as t ->
+	 (* TODO:  Only if d is not already visited! *)
+	 (match List.Exceptionless.find ((==) d) visited with
+	  | Some x -> t
+	  | None -> CFG.Edge(s,d, Some (cfg_wcrc (d :: visited) d)))
+      | _ as s -> s in
+    (if List.exists edges_not_analyzedp cfg.CFG.o then
+       let new_edges = List.map analyze_edges cfg.CFG.o in
+       cfg.CFG.o <- new_edges);
+
+    let edge_wcrcs =
+      List.map
+	(function
+	  | CFG.Edge (_,_,Some x) -> x
+	  | _ -> raise (Internal "Unexpected type")) cfg.CFG.o in
+    cfg.CFG.wcet + List.fold_left max (List.hd edge_wcrcs) (List.tl edge_wcrcs)
+
+let rec method_wcet pbir cp visited mm cfg = 
+  let llc = JFile.get_class_low (JFile.class_path cp) cfg.CFG.cn in
+  let cnn = JLow2High.low2high_class llc in
+  let cpool = get_class (class_path cp) cfg.CFG.cn |> get_consts in
+  let cpool1 = DynArray.init (Array.length cpool) (fun i -> cpool.(i)) in
+  let m = JHigh2Low.h2l_acmethod cpool1 (JClass.get_method cnn cfg.CFG.ms) in
+  let mcode = List.map
+		(function
+		  | JL.AttributeCode x -> Some (Lazy.force x)
+		  | _ -> None) m.JL.m_attributes
+	      |> List.filter (function Some x -> true | _ -> false)
+	      |> List.hd in
+  let mcode = match mcode with
+    | Some x -> x.JL.c_code
+    | None -> raise (Internal ("Unexpected type")) in
+
+  (* TODO: Now get the program
+  points at the bytecode level for
+  this basic block *)
+  let bir = JControlFlow.PP.get_first_pp pbir cfg.CFG.cn cfg.CFG.ms
+	    |> JControlFlow.PP.get_ir in
+  (* FIXME:  Check what happens when pps = 0? *)
+  let bytecode_pps = if cfg.CFG.pps = 0 then 0
+		     else
+		       let bb = (pc_ir2bc bir).(cfg.CFG.pps-1) in
+		       bb + LW.get_size mcode.(bb) in
+  let bytecode_ppe = (pc_ir2bc bir).(cfg.CFG.ppe) in
+  let bytecode_ppe = bytecode_ppe + LW.get_size mcode.(bytecode_ppe) in
+  cfg.CFG.lpps <- Some bytecode_pps;
+  cfg.CFG.lppe <- Some bytecode_ppe;
+  (* XXX: Now I have the program
+  points at the low-level to
+  calculate the wcet of this basic
+  block *)
+  let mcode = Array.enum mcode
+	      |> Enum.skip bytecode_pps
+	      |> Enum.take bytecode_ppe in
+  cfg.CFG.wcet <- get_wcrc mcode mm cpool;
+  List.iter
+    (function
+      | CFG.Edge (s,d,_) ->
+	 match List.Exceptionless.find ((==) d) visited with
+	 | Some x -> ()
+	 | None ->
+	    method_wcet pbir cp (cfg :: visited) mm d) cfg.CFG.o
+  
+(* This function adds chkpts to the edges of the cfg *)
+let add_chkpt chkpts cfg = ()
 
 let main = 
   try
@@ -475,8 +553,7 @@ let main =
        places where checkpoints need to be inserted.*)
     let callgraph = JProgram.get_callgraph_from_entries
       (* prta [(make_cms (make_cn cn) JProgram.main_signature)] in *)
-      (* FIXME:  This is for Bubble only! *)
-      prta [(make_cms (make_cn cn) (make_ms "mix" [(TBasic `Int); (TObject (TArray (TBasic `Int)))] None))] in
+      prta [(make_cms (make_cn cn) (make_ms "start" [] None))] in
     (if List.length callgraph <> 1 then
 	let () = JProgram.store_callgraph callgraph "/tmp/Callgraph.txt" in
 	raise (Not_supported "Only a single method allowed, please inline manually, see /tmp/Callgraph.txt"));
@@ -509,7 +586,7 @@ let main =
 	     | Some x -> x.JL.c_code
 	     | None -> raise (Internal ("Unexpected type")) in
 	   Some (x + LW.get_size mcode.(x))
-    	| None -> None) a) possible_checkpoints methods_to_explore in
+	| None -> None) a) possible_checkpoints methods_to_explore in
 
     (* (\* XXX:  DEBUG *\) *)
     (* let () = print_endline "IF AND LOOP FIRST BB CHECKPOINTS" in *)
@@ -526,14 +603,18 @@ let main =
     (* XXX:  DEBUG *)
     let () = List.iter (CFG.print_cfg []) method_cfgs in
 
-    (* FIXME:  We should convert each method to its CFG before we do this! *)
-    (* TODO:  Print the CFG of the methods from the callgraph *)
     (* XXX: Note that the WCRC calculated here is only until the end of
        the method from the checkpoint at best!*)
-    (* let l = LW.parsewca !sourcep in *)
-    (* let mm = LW.internal_main cp cn l true in *)
-    (* let cp_wcrc = get_checkpoint_wcrc (methods_to_explore, possible_checkpoints) mm cp in *)
-    ()
+    let l = LW.parsewca !sourcep in
+    let mm = LW.internal_main cp cn l true in
+    (* TODO:  attach the wcet for each BB in method_cfgs *)
+    let () = List.iter (method_wcet pbir cp [] mm) method_cfgs in
+    (* TODO:  Computed the wcrc of the edges, this function is side-effecting*)
+    (* FIXME:  This function should also include the wcet loop iteration #!*)
+    ignore(List.map (cfg_wcrc []) method_cfgs);
+    (* TODO:  Now add the checkpoint to the edges *)
+    let () = List.iter2 add_chkpt possible_checkpoints method_cfgs in
+    List.iter (CFG.print_cfg []) method_cfgs
   with
   | NARGS -> ()
      
