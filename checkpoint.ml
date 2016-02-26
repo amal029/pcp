@@ -461,12 +461,12 @@ let rec cfg_wcrc visited cfg =
       | Some x -> true
       | None -> false in
     let edges_not_analyzedp = function
-      | CFG.Edge (_,_,Some _) -> false
+      | CFG.Edge (_,_,Some _,_) -> false
       | _ -> true in
     let analyze_edges = function
-      | CFG.Edge (s,d,None) as t ->
+      | CFG.Edge (s,d,None,l) as t ->
 	 if is_back_edge d then t
-	 else CFG.Edge(s,d, Some (cfg_wcrc (d :: visited) d))
+	 else CFG.Edge(s,d, Some (cfg_wcrc (d :: visited) d),l)
       | _ as s -> s in
     (if List.exists edges_not_analyzedp cfg.CFG.o then
        let new_edges = List.map analyze_edges cfg.CFG.o in
@@ -475,8 +475,8 @@ let rec cfg_wcrc visited cfg =
     let edge_wcrcs =
       List.map
 	(function
-	  | CFG.Edge (_,_,Some x) -> x
-	  | CFG.Edge (_,d, None) ->
+	  | CFG.Edge (_,_,Some x,_) -> x
+	  | CFG.Edge (_,d, None,_) ->
 	     if is_back_edge d then 0
 	     else raise (Internal "Unexpected type")) cfg.CFG.o in
     cfg.CFG.wcet + List.fold_left max (List.hd edge_wcrcs) (List.tl edge_wcrcs)
@@ -521,14 +521,33 @@ let rec method_wcet pbir cp visited mm cfg =
   cfg.CFG.wcet <- get_wcrc mcode mm cpool;
   List.iter
     (function
-      | CFG.Edge (s,d,_) ->
+      | CFG.Edge (s,d,_,_) ->
 	 match List.Exceptionless.find ((==) d) visited with
 	 | Some x -> ()
 	 | None ->
 	    method_wcet pbir cp (cfg :: visited) mm d) cfg.CFG.o
   
 (* This function adds chkpts to the edges of the cfg *)
-let add_chkpt chkpts cfg = ()
+let rec add_chkpt visited chkpts cfg = 
+  let is_back_edge d =
+    match List.Exceptionless.find ((==) d) visited with
+    | Some x -> true
+    | None -> false in
+
+  let edges =
+    List.map
+      (function
+      | CFG.Edge (s,d,w,_) as e ->
+	 if Array.exists ((=) d.CFG.lpps) chkpts then
+	   CFG.Edge(s,d,w,d.CFG.lpps)
+	 else e) cfg.CFG.o in
+  cfg.CFG.o <- edges;
+  List.iter
+    (function
+    | CFG.Edge (_,d,_,_) ->
+       if not (is_back_edge d) then
+	 add_chkpt (d :: visited) chkpts d) cfg.CFG.o
+    
 
 let main = 
   try
@@ -605,7 +624,7 @@ let main =
     let method_cfgs =
       List.map (fun (x,y) -> CFG.build_method_cfg x y pbir) methods_to_explore in
     (* XXX:  DEBUG *)
-    let () = List.iter (CFG.print_cfg []) method_cfgs in
+    (* let () = List.iter (CFG.print_cfg []) method_cfgs in *)
 
     (* XXX: Note that the WCRC calculated here is only until the end of
        the method from the checkpoint at best!*)
@@ -617,7 +636,7 @@ let main =
     (* FIXME:  This function should also include the wcet loop iteration #!*)
     ignore(List.map (cfg_wcrc []) method_cfgs);
     (* TODO:  Now add the checkpoint to the edges *)
-    let () = List.iter2 add_chkpt possible_checkpoints method_cfgs in
+    let () = List.iter2 (add_chkpt []) possible_checkpoints method_cfgs in
     List.iter (CFG.print_cfg []) method_cfgs
   with
   | NARGS -> ()

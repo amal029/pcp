@@ -24,25 +24,30 @@ type bb = {pps : int;
 	      mutable wcet : int;
 	      mutable o: edge list}
 
-and edge = Edge of (bb * bb * int option)
+and edge = Edge of (bb * bb * int option * int option)
 
 let rec print_cfg visited cfg =
   let () = print_string ((string_of_int cfg.pps)
 			 ^ "--" ^ (string_of_int cfg.ppe)) in
-  let () = (print_string >> ((^)" ") >> string_of_int) cfg.wcet in
+  (* let () = (print_string >> ((^)" ") >> string_of_int) cfg.wcet in *)
 
   let () =
-    List.iter (function | Edge (_,d,w) ->
+    List.iter (function | Edge (_,d,w,chkp) ->
       let () = print_string "\n|-->" in
       let () = print_string ((string_of_int d.pps) ^ "--"
 			     ^ (string_of_int d.ppe)) in
-      print_string (": " ^
-	(match w with | None -> "-1"
-	| Some x -> (string_of_int x)))) cfg.o in
+      let () =
+	print_string (": " ^
+			 (match w with | None -> "Back edge"
+			 | Some x -> (string_of_int x))) in
+      print_string (
+	match chkp with
+	| None -> ", No checkpoint"
+	| Some x -> ", " ^ (string_of_int x))) cfg.o in
   let () = print_endline "\n" in
   List.iter
     (function
-      | Edge (s,d,_) ->
+      | Edge (s,d,_,_) ->
 	 match List.Exceptionless.find ((==) d) visited with
 	 | Some x -> ()
 	 | None ->
@@ -92,12 +97,12 @@ let build_method_cfg cn ms pbir =
 	  (fun p ->
 	    if p>= 0 && not (p >= bb.pps && p <= bb.ppe) then
 	      let gbb = get_goto_bb p bpps in
-	      gbb.o <- gbb.o @ [Edge(gbb,bb,None)]) pa
+	      gbb.o <- gbb.o @ [Edge(gbb,bb,None,None)]) pa
       done) bpps in
 
   (* Add a dummy start node *)
   let dummy = {pps=0;ppe=0;cn=cn;ms=ms;o=[];wcet=0;lpps=None;lppe=None} in
-  dummy.o <- [Edge(dummy,(List.hd bpps), None)];
+  dummy.o <- [Edge(dummy,(List.hd bpps), None, None)];
   dummy
 
     
