@@ -25,9 +25,11 @@
    are not being handeled correctly.
 
 * To complete
-** TODO Inline all code manually and also make main and init methods for examples.
+** DONE Inline all code manually and also make main and init methods for examples.
    DEADLINE: <2016-02-23 Tue>
-** TODO Write the CFG generator for the methods.
+** DONE Write the CFG generator for the methods.
    DEADLINE: <2016-02-28 Sun>
 ** TODO Write the wcet/wcrc analysis using the CFG
    DEADLINE: <2016-03-06 Sun>
+** TODO Insert the Native.wcrc method call in the code.
+   DEADLINE: <2016-02-28 Sun>

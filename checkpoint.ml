@@ -511,10 +511,8 @@ let rec method_wcet pbir cp visited mm cfg =
   let bytecode_ppe = bytecode_ppe + LW.get_size mcode.(bytecode_ppe) in
   cfg.CFG.lpps <- Some bytecode_pps;
   cfg.CFG.lppe <- Some bytecode_ppe;
-  (* XXX: Now I have the program
-  points at the low-level to
-  calculate the wcet of this basic
-  block *)
+  (* XXX: Now I have the program points at the low-level to calculate
+  the wcet of this basic block *)
   let mcode = Array.enum mcode
 	      |> Enum.skip bytecode_pps
 	      |> Enum.take bytecode_ppe in
@@ -547,8 +545,40 @@ let rec add_chkpt visited chkpts cfg =
     | CFG.Edge (_,d,_,_) ->
        if not (is_back_edge d) then
 	 add_chkpt (d :: visited) chkpts d) cfg.CFG.o
-    
 
+let get_loops cp l cfg =
+  let llc = JFile.get_class_low (JFile.class_path cp) cfg.CFG.cn in
+  let cnn = JLow2High.low2high_class llc in
+  let cpool = get_class (class_path cp) cfg.CFG.cn |> get_consts in
+  let cpool1 = DynArray.init (Array.length cpool) (fun i -> cpool.(i)) in
+  let m = JHigh2Low.h2l_acmethod cpool1 (JClass.get_method cnn cfg.CFG.ms) in
+  let mcode = List.map
+		(function
+		  | JL.AttributeCode x -> Some (Lazy.force x)
+		  | _ -> None) m.JL.m_attributes
+	      |> List.filter (function Some x -> true | _ -> false)
+	      |> List.hd in
+  let lnt = match mcode with
+    | Some mx ->
+       let attr_l = mx.JL.c_attributes in
+       let lnt = List.find (function | JL.AttributeLineNumberTable _ -> true | _ -> false) attr_l in
+       (match lnt with
+	| JClassLow.AttributeLineNumberTable x -> x
+	| _ -> raise (Internal "Could not get the line-number-table!"))
+    | None -> raise (Internal ("Unexpected type")) in
+  let lnt = List.map (fun (x,y) -> (y,x)) lnt in
+  let () = print_endline "Printing the line number table: " in
+  let () = List.iter (fun (x,y) -> (string_of_int x) ^ ":" ^ (string_of_int y) |> print_endline) lnt in
+  (* Get the loop-wcet-bound in terms of low-level byte-code *)
+  let bounds =
+    try
+      Hashtbl.find l (cn_name cfg.CFG.cn)
+    with
+    | Not_found -> raise (Internal ("class: " ^ (cn_name cfg.CFG.cn)
+  				    ^ " does not have loop bounds!")) in
+  let bounds = DynArray.to_list bounds |> List.map (fun (x,y) -> ((int_of_string x),(int_of_string y))) in
+  ()
+    
 let main = 
   try
     let args = DynArray.make 2 in
@@ -577,14 +607,10 @@ let main =
     let callgraph = JProgram.get_callgraph_from_entries
       (* prta [(make_cms (make_cn cn) JProgram.main_signature)] in *)
       prta [(make_cms (make_cn cn) (make_ms "start" [] None))] in
-    (if List.length callgraph <> 1 then
+    (if not (List.is_empty callgraph) then
 	let () = JProgram.store_callgraph callgraph "/tmp/Callgraph.txt" in
 	raise (Not_supported "Only a single method allowed, please inline manually, see /tmp/Callgraph.txt"));
-    (* Put methods into the methodset *)
-    let methods_to_explore = List.fold_left (fun s ((cn1, ms1, _), (cn2, ms2)) ->
-      ClassMethodSet.add (make_cms cn2 ms2) (ClassMethodSet.add (make_cms cn1 ms1) s))
-      ClassMethodSet.empty callgraph in
-    let methods_to_explore = List.map cms_split (ClassMethodSet.elements methods_to_explore) in
+    let methods_to_explore = [((make_cn cn), (make_ms "start" [] None))]  in
     (* TODO: For each of the methods load them and dump the checkpoint
      line number at Bytecode level*)
     let possible_checkpoints = List.map (get_bytecode_nums pbir) methods_to_explore in
@@ -626,12 +652,15 @@ let main =
     (* XXX:  DEBUG *)
     (* let () = List.iter (CFG.print_cfg []) method_cfgs in *)
 
-    (* XXX: Note that the WCRC calculated here is only until the end of
-       the method from the checkpoint at best!*)
+    (* XXX: "l" is a assoc-list where is the key is the class-name and
+    the values are array of tuples of type: (line_num, loop-bound)*)
     let l = LW.parsewca !sourcep in
-    let mm = LW.internal_main cp cn l true in
-    (* TODO:  attach the wcet for each BB in method_cfgs *)
+    (* XXX: We do not provide the loop-bounds to this thing! *)
+    let mm = LW.internal_main cp cn (Hashtbl.create 1) true in
+    (* TODO: attach the wcet for each BB in method_cfgs *)
     let () = List.iter (method_wcet pbir cp [] mm) method_cfgs in
+    (* TODO:  Now compute the wcet with the loop-bounds! *)
+    let loops = List.map (get_loops cp l) method_cfgs in
     (* TODO:  Computed the wcrc of the edges, this function is side-effecting*)
     (* FIXME:  This function should also include the wcet loop iteration #!*)
     ignore(List.map (cfg_wcrc []) method_cfgs);
