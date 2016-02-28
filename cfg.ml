@@ -31,7 +31,7 @@ let rec print_cfg visited cfg =
     | Some x -> (string_of_int x)
     | None -> raise (LW.Internal "") in
   let () = print_string ((string_of_int cfg.pps)
-			 ^ "--" ^ (string_of_int cfg.ppe) ^ ", ") in
+		 ^ "--" ^ (string_of_int cfg.ppe) ^ ", ") in
   let () = print_string (get_lpps_lppe cfg.lpps ^ "--" ^ get_lpps_lppe cfg.lppe) in
   (* let () = (print_string >> ((^)" ") >> string_of_int) cfg.wcet in *)
 

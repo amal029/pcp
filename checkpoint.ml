@@ -662,32 +662,32 @@ let main =
     let args = DynArray.make 2 in
     let sourcep = ref "" in
     let speclist = [
-	("-sourcepath", Arg.String (fun x -> sourcep := x), "Source path for parsing loop count");
-      ] in
+      ("-sourcepath", Arg.String (fun x -> sourcep := x), "Source path for parsing loop count");
+    ] in
     let () = Arg.parse speclist (fun x -> DynArray.add args x) (usage_msg^"\n[OPTION]:") in
     let (cp, cn) = 
       if DynArray.length args <> 2 then let () = print_endline usage_msg; Arg.usage speclist "[OPTION]:" in exit 1
       else (DynArray.get args 0,DynArray.get args 1) in
     (* Need to build all the other entry points so that other classes are also parsed!! *)
     let (prta,_) = JRTA.parse_program
-		     ~instantiated:[]
-		     ~other_entrypoints:[make_cms (make_cn "com.jopdesign.sys.Startup")
-						  (make_ms "boot" [] None)]
-		     cp (make_cms (make_cn cn) JProgram.main_signature) in
+      ~instantiated:[]
+      ~other_entrypoints:[make_cms (make_cn "com.jopdesign.sys.Startup")
+			     (make_ms "boot" [] None)]
+      cp (make_cms (make_cn cn) JProgram.main_signature) in
     (* Convert it into JBIR format *)
     let pbir = JProgram.map_program2
-		 (fun _ -> transform ~bcv:false ~ch_link:false) 
-		 (Some (fun code pp -> (pc_ir2bc code).(pp)))
-		 prta in
+      (fun _ -> transform ~bcv:false ~ch_link:false) 
+      (Some (fun code pp -> (pc_ir2bc code).(pp)))
+      prta in
 
     (* TODO: Dump a file with line numbers at bytecode level and the
        places where checkpoints need to be inserted.*)
     let callgraph = JProgram.get_callgraph_from_entries
-		      (* prta [(make_cms (make_cn cn) JProgram.main_signature)] in *)
-		      prta [(make_cms (make_cn cn) (make_ms "start" [] None))] in
+      (* prta [(make_cms (make_cn cn) JProgram.main_signature)] in *)
+      prta [(make_cms (make_cn cn) (make_ms "start" [] None))] in
     (if not (List.is_empty callgraph) then
-       let () = JProgram.store_callgraph callgraph "/tmp/Callgraph.txt" in
-       raise (Not_supported "Only a single method allowed, please inline manually, see /tmp/Callgraph.txt"));
+	let () = JProgram.store_callgraph callgraph "/tmp/Callgraph.txt" in
+	raise (Not_supported "Only a single method allowed, please inline manually, see /tmp/Callgraph.txt"));
     let methods_to_explore = [((make_cn cn), (make_ms "start" [] None))]  in
     (* TODO: For each of the methods load them and dump the checkpoint
        line number at Bytecode level*)
@@ -696,24 +696,24 @@ let main =
       (* XXX: We need to manually calculate the bytecode offset at the
 	 lower level bytecode representation!! *)
       List.map2 (fun a (cn, ms) ->
-		 Array.map (function
-    			     | Some x ->
-				let llc = JFile.get_class_low (JFile.class_path cp) cn in
-				let cnn = JLow2High.low2high_class llc in
-				let cpool = get_class (class_path cp) cn |> get_consts in
-				let cpool = DynArray.init (Array.length cpool) (fun i -> cpool.(i)) in
-				let m = JHigh2Low.h2l_acmethod cpool (JClass.get_method cnn ms) in
-				let mcode = List.map
-					      (function
-						| JL.AttributeCode x -> Some (Lazy.force x)
-						| _ -> None) m.JL.m_attributes
-					    |> List.filter (function Some x -> true | _ -> false)
-					    |> List.hd in
-				let mcode = match mcode with
-				  | Some x -> x.JL.c_code
-				  | None -> raise (Internal ("Unexpected type")) in
-				Some (x + LW.get_size mcode.(x))
-			     | None -> None) a) possible_checkpoints methods_to_explore in
+	Array.map (function
+    	| Some x ->
+	   let llc = JFile.get_class_low (JFile.class_path cp) cn in
+	   let cnn = JLow2High.low2high_class llc in
+	   let cpool = get_class (class_path cp) cn |> get_consts in
+	   let cpool = DynArray.init (Array.length cpool) (fun i -> cpool.(i)) in
+	   let m = JHigh2Low.h2l_acmethod cpool (JClass.get_method cnn ms) in
+	   let mcode = List.map
+	     (function
+	     | JL.AttributeCode x -> Some (Lazy.force x)
+	     | _ -> None) m.JL.m_attributes
+	|> List.filter (function Some x -> true | _ -> false)
+	|> List.hd in
+	   let mcode = match mcode with
+	     | Some x -> x.JL.c_code
+	     | None -> raise (Internal ("Unexpected type")) in
+	   Some (x + LW.get_size mcode.(x))
+	| None -> None) a) possible_checkpoints methods_to_explore in
 
     (* (\* XXX:  DEBUG *\) *)
     (* let () = print_endline "IF AND LOOP FIRST BB CHECKPOINTS" in *)
@@ -741,10 +741,10 @@ let main =
     let bound_list = List.map (get_loops cp l) method_cfgs in
     let bound_list =
       List.map (fun l ->
-		List.map
-		  (function
-		    | (Some x, Some y, z) -> (x,y,z)
-		    | _ -> raise (Internal "Unitialized loop bounds")) l ) bound_list in
+	List.map
+	  (function
+	  | (Some x, Some y, z) -> (x,y,z)
+	  | _ -> raise (Internal "Unitialized loop bounds")) l ) bound_list in
     (* TODO:  Update the wcet values with the loop_bounds *)
     let () = List.iter2 (update_wcet []) bound_list method_cfgs in
     (* TODO:  Computed the wcrc of the edges, this function is side-effecting*)
@@ -756,13 +756,49 @@ let main =
     (* List.iter (CFG.print_cfg []) method_cfgs; *)
     let wcet =
       List.map (fun cfg ->
-		match (List.hd cfg.CFG.o) with
-		| CFG.Edge(_,_,Some x,_) -> x
-		| _ -> raise (Internal "Cannot get the wcet!")) method_cfgs in
+	match (List.hd cfg.CFG.o) with
+	| CFG.Edge(_,_,Some x,_) -> x
+	| _ -> raise (Internal "Cannot get the wcet!")) method_cfgs in
     (* XXX:  DEBUG*)
     List.iter (print_endline >> string_of_int) wcet;
-  (* TODO: Now we need to insert Native.wcrc into the method at the
-    checkpoint bytecode along with the wcrc value *)
+    (* TODO: Now we need to insert Native.wcrc into the method at the
+       checkpoint bytecode along with the wcrc value *)
+    let rec get_checkpts visited cfg = 
+      let is_back_edge d =
+	match List.Exceptionless.find ((==) d) visited with
+	| Some x -> true
+	| None -> false in
+      if List.is_empty cfg.CFG.o then []
+      else
+	(* TODO: Now collect the checkpoints from edges and assoc them *)
+	List.map
+	  (function
+	  | CFG.Edge(_,d,wcrc,chkpt) -> 
+	     if not (is_back_edge d) then
+	       (match (chkpt,wcrc) with
+	       | (Some x, Some y) -> [(x,y)]
+	       | _ ->[]) @
+		 (get_checkpts (d :: visited) d)
+	     else []) cfg.CFG.o |> List.flatten in
+    let checkpts_assoc_list = List.map (get_checkpts []) method_cfgs in
+    (* TODO:  Change the method bytecode! *)
+    let prta =
+      List.fold_left2
+	(fun p (mcn, mms) achkp ->
+	  JProgram.map_program
+	    (fun cn ms code ->
+	      if (cn_equal mcn cn) && (ms_equal mms ms) then
+		let achkp = List.fast_sort (fun (i,_) (j,_) -> compare i j) achkp in
+		let jcode =
+		  List.fold_left
+		    (fun jcode (i, wcrc) ->
+		      (* TODO: Update the array correctly here *)
+		      jcode) code.c_code achkp in
+		{code with c_code = jcode}
+	      else code) None p) prta methods_to_explore checkpts_assoc_list in
+    (* Output *)
+    (* JPrint.print_class (JProgram.to_ioc (JProgram.get_node prta (make_cn cn))) JPrint.jcode stdout; *)
+    unparse_class (JProgram.to_ioc (JProgram.get_node prta (make_cn cn))) (open_out_bin (cn^".class"));
   with
   | NARGS -> ()
 	       
