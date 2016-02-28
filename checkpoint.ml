@@ -566,7 +566,8 @@ let get_loops cp l cfg =
 	| JClassLow.AttributeLineNumberTable x -> x
 	| _ -> raise (Internal "Could not get the line-number-table!"))
     | None -> raise (Internal ("Unexpected type")) in
-  let lnt = List.map (fun (x,y) -> (y,x)) lnt in
+  let lnt = List.map(fun (x,y) -> (y,x)) lnt in
+  (* XXX:  DEBUG *)
   let () = print_endline "Printing the line number table: " in
   let () = List.iter (fun (x,y) -> (string_of_int x) ^ ":" ^ (string_of_int y) |> print_endline) lnt in
   (* Get the loop-wcet-bound in terms of low-level byte-code *)
@@ -577,7 +578,53 @@ let get_loops cp l cfg =
     | Not_found -> raise (Internal ("class: " ^ (cn_name cfg.CFG.cn)
   				    ^ " does not have loop bounds!")) in
   let bounds = DynArray.to_list bounds |> List.map (fun (x,y) -> ((int_of_string x),(int_of_string y))) in
-  ()
+  (* TODO:  attach the bytecode to the loop-bound *)
+  let bounds = List.map (fun (x,y) -> let (_,b) = List.find (fun (s, _) -> x = s) lnt in (b,y)) bounds in
+  (* XXX:  DEBUG *)
+  let () = print_endline "Printing the bounds" in
+  let () = List.iter (fun (x,y) -> (string_of_int x) ^ ":" ^ (string_of_int y) |> print_endline) bounds in
+  let rec get_bound_list visited cfg = 
+    let is_back_edge d =
+      match List.Exceptionless.find ((==) d) visited with
+      | Some x -> true
+      | None -> false in
+    if List.is_empty cfg.CFG.o then []
+    else
+      let blist =
+	List.map
+	  (function
+	  | CFG.Edge (s,d,_,_) ->
+	     if is_back_edge d then
+	       (* TODO:  Now you do something *)
+	       let (_,bound) =
+		 let lpps = match d.CFG.lpps with
+		   | Some x -> x
+		   | None -> raise (Internal "lpps not initialized") in
+		 let lppe = match d.CFG.lppe with
+		   | Some x -> x
+		   | None -> raise (Internal "lppe not initialized") in
+		    (* TODO:  There should be exactly one pp in bounds included in lpps and lppe *)
+		 let res = List.find_all (fun (x,_) -> x >= lpps && x < lppe) bounds |> List.unique in
+		 if List.length res = 1 then
+		   List.hd res
+		 else
+		   let () = (string_of_int lpps) ^ "," ^ (string_of_int lppe) |> print_endline in
+		   let () = (print_endline >> string_of_int >> List.length) res in
+		   let () = List.iter (fun (x,y) ->
+		     (print_string >> ((^) " ") >> string_of_int) x;
+		     (print_endline >> ((^) " ") >> string_of_int) y) res in
+		   raise (Internal "More than one loop bound detected!") in
+	       [(d.CFG.lpps, s.CFG.lppe, bound)]
+	     else
+               get_bound_list (d :: visited) d) cfg.CFG.o in
+      List.flatten blist in
+  let bound_list = get_bound_list [] cfg in
+  (* XXX:  DEBUG *)
+  let () = print_endline "Printing loop bounds" in
+  List.iter
+    (function
+    | (Some x, Some y, z) -> "(" ^ (string_of_int x) ^ ", " ^ (string_of_int y) ^ ", " ^ (string_of_int z) ^ ")" |> print_endline
+    | _ -> raise (Internal "Cannot find loop bounds!")) bound_list
     
 let main = 
   try
@@ -660,7 +707,7 @@ let main =
     (* TODO: attach the wcet for each BB in method_cfgs *)
     let () = List.iter (method_wcet pbir cp [] mm) method_cfgs in
     (* TODO:  Now compute the wcet with the loop-bounds! *)
-    let loops = List.map (get_loops cp l) method_cfgs in
+    let _ = List.map (get_loops cp l) method_cfgs in
     (* TODO:  Computed the wcrc of the edges, this function is side-effecting*)
     (* FIXME:  This function should also include the wcet loop iteration #!*)
     ignore(List.map (cfg_wcrc []) method_cfgs);
