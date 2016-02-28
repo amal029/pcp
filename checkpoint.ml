@@ -423,8 +423,8 @@ let get_bytecode_nums pbir (cn, ms) =
     let first_pp = JControlFlow.PP.get_first_pp pbir cn ms in
     let bir = JControlFlow.PP.get_ir first_pp in
     (* XXX: DEBUG *)
-    let () = print_endline ((cn_name cn) ^ "." ^ (ms_name ms)) in
-    let () = List.iter print_endline (print ~phi_simpl:false bir) in
+    (* let () = print_endline ((cn_name cn) ^ "." ^ (ms_name ms)) in *)
+    (* let () = List.iter print_endline (print ~phi_simpl:false bir) in *)
     (* TODO:  First get the pps for the if branches *)
     let lnums = Array.mapi
       (fun i x ->
@@ -555,22 +555,22 @@ let get_loops cp l cfg =
   let mcode =
     List.map
       (function
-      | JL.AttributeCode x -> Some (Lazy.force x)
-      | _ -> None) m.JL.m_attributes
-  |> List.filter (function Some x -> true | _ -> false)
-  |> List.hd in
+	| JL.AttributeCode x -> Some (Lazy.force x)
+	| _ -> None) m.JL.m_attributes
+    |> List.filter (function Some x -> true | _ -> false)
+    |> List.hd in
   let lnt = match mcode with
     | Some mx ->
        let attr_l = mx.JL.c_attributes in
        let lnt = List.find (function | JL.AttributeLineNumberTable _ -> true | _ -> false) attr_l in
        (match lnt with
-       | JClassLow.AttributeLineNumberTable x -> x
-       | _ -> raise (Internal "Could not get the line-number-table!"))
+	| JClassLow.AttributeLineNumberTable x -> x
+	| _ -> raise (Internal "Could not get the line-number-table!"))
     | None -> raise (Internal ("Unexpected type")) in
   let lnt = List.map(fun (x,y) -> (y,x)) lnt in
   (* XXX:  DEBUG *)
-  let () = print_endline "Printing the line number table: " in
-  let () = List.iter (fun (x,y) -> (string_of_int x) ^ ":" ^ (string_of_int y) |> print_endline) lnt in
+  (* let () = print_endline "Printing the line number table: " in *)
+  (* let () = List.iter (fun (x,y) -> (string_of_int x) ^ ":" ^ (string_of_int y) |> print_endline) lnt in *)
   (* Get the loop-wcet-bound in terms of low-level byte-code *)
   let bounds =
     try
@@ -582,8 +582,8 @@ let get_loops cp l cfg =
   (* TODO:  attach the bytecode to the loop-bound *)
   let bounds = List.map (fun (x,y) -> let (_,b) = List.find (fun (s, _) -> x = s) lnt in (b,y)) bounds in
   (* XXX:  DEBUG *)
-  let () = print_endline "Printing the bounds" in
-  let () = List.iter (fun (x,y) -> (string_of_int x) ^ ":" ^ (string_of_int y) |> print_endline) bounds in
+  (* let () = print_endline "Printing the bounds" in *)
+  (* let () = List.iter (fun (x,y) -> (string_of_int x) ^ ":" ^ (string_of_int y) |> print_endline) bounds in *)
   let rec get_bound_list visited cfg = 
     let is_back_edge d =
       match List.Exceptionless.find ((==) d) visited with
@@ -594,76 +594,100 @@ let get_loops cp l cfg =
       let blist =
 	List.map
 	  (function
-	  | CFG.Edge (s,d,_,_) ->
-	     if is_back_edge d then
-	       (* TODO:  Now you do something *)
-	       let (_,bound) =
-		 let lpps = match d.CFG.lpps with
-		   | Some x -> x
-		   | None -> raise (Internal "lpps not initialized") in
-		 let lppe = match d.CFG.lppe with
-		   | Some x -> x
-		   | None -> raise (Internal "lppe not initialized") in
-		 (* TODO:  There should be exactly one pp in bounds included in lpps and lppe *)
-		 let res = List.find_all (fun (x,_) -> x >= lpps && x < lppe) bounds |> List.unique in
-		 if List.length res = 1 then
-		   List.hd res
-		 else
-		   let () = (string_of_int lpps) ^ "," ^ (string_of_int lppe) |> print_endline in
-		   let () = (print_endline >> string_of_int >> List.length) res in
-		   let () = List.iter (fun (x,y) ->
-		     (print_string >> ((^) " ") >> string_of_int) x;
-		     (print_endline >> ((^) " ") >> string_of_int) y) res in
-		   raise (Internal "More than one loop bound detected!") in
-	       [(d.CFG.lpps, s.CFG.lppe, bound)]
-	     else
-               get_bound_list (d :: visited) d) cfg.CFG.o in
+	    | CFG.Edge (s,d,_,_) ->
+	       if is_back_edge d then
+		 (* TODO:  Now you do something *)
+		 let (_,bound) =
+		   let lpps = match d.CFG.lpps with
+		     | Some x -> x
+		     | None -> raise (Internal "lpps not initialized") in
+		   let lppe = match d.CFG.lppe with
+		     | Some x -> x
+		     | None -> raise (Internal "lppe not initialized") in
+		   (* TODO:  There should be exactly one pp in bounds included in lpps and lppe *)
+		   let res = List.find_all (fun (x,_) -> x >= lpps && x < lppe) bounds |> List.unique in
+		   if List.length res = 1 then
+		     List.hd res
+		   else
+		     let () = (string_of_int lpps) ^ "," ^ (string_of_int lppe) |> print_endline in
+		     let () = (print_endline >> string_of_int >> List.length) res in
+		     let () = List.iter (fun (x,y) ->
+					 (print_string >> ((^) " ") >> string_of_int) x;
+					 (print_endline >> ((^) " ") >> string_of_int) y) res in
+		     raise (Internal "More than one loop bound detected!") in
+		 [(d.CFG.lpps, s.CFG.lppe, bound)]
+	       else
+		 get_bound_list (d :: visited) d) cfg.CFG.o in
       List.flatten blist in
   let bound_list = get_bound_list [] cfg in
-  (* XXX:  DEBUG *)
-  let () = print_endline "Printing loop bounds" in
-  let () =
-    List.iter
-      (function
-      | (Some x, Some y, z) -> "(" ^ (string_of_int x) ^ ", " ^ (string_of_int y) ^ ", " ^ (string_of_int z) ^ ")" |> print_endline
-      | _ -> raise (Internal "Cannot find loop bounds!")) bound_list in
+  (* (\* XXX:  DEBUG *\) *)
+  (* let () = print_endline "Printing loop bounds" in *)
+  (* let () = *)
+  (*   List.iter *)
+  (*     (function *)
+  (* 	| (Some x, Some y, z) -> "(" ^ (string_of_int x) ^ ", " ^ (string_of_int y) ^ ", " ^ (string_of_int z) ^ ")" *)
+  (* 				 |> print_endline *)
+  (* 	| _ -> raise (Internal "Cannot find loop bounds!")) bound_list in *)
   bound_list
 
 
 (* This function updates the wcet values with the loop bounds *)
-let update_wcet blist cfg = ()
+let rec update_wcet visited blist cfg =
+  let lpps = match cfg.CFG.lpps with
+    | Some x -> x
+    | None -> raise (Internal "lpps not initialized") in
+  let lppe = match cfg.CFG.lppe with
+    | Some x -> x
+    | None -> raise (Internal "lppe not initialized") in
+  let is_back_edge d =
+    match List.Exceptionless.find ((==) d) visited with
+    | Some x -> true
+    | None -> false in
+  (* TODO: First get the bounds that apply to this basic block*)
+  let multiplicand =
+    List.fold_left
+      (fun v bound ->
+       match bound with
+       | (s,e,b) -> if lpps >= s && lppe < e then v*b else v) 1 blist in
+  cfg.CFG.wcet <- cfg.CFG.wcet * multiplicand;
+  (* XXX: Recurse if this is not a back-edge*)
+  List.iter
+    (function
+      | CFG.Edge (_,d,_,_) ->
+	 if not (is_back_edge d) then
+           update_wcet (d :: visited) blist d) cfg.CFG.o
   
 let main = 
   try
     let args = DynArray.make 2 in
     let sourcep = ref "" in
     let speclist = [
-      ("-sourcepath", Arg.String (fun x -> sourcep := x), "Source path for parsing loop count");
-    ] in
+	("-sourcepath", Arg.String (fun x -> sourcep := x), "Source path for parsing loop count");
+      ] in
     let () = Arg.parse speclist (fun x -> DynArray.add args x) (usage_msg^"\n[OPTION]:") in
     let (cp, cn) = 
       if DynArray.length args <> 2 then let () = print_endline usage_msg; Arg.usage speclist "[OPTION]:" in exit 1
       else (DynArray.get args 0,DynArray.get args 1) in
     (* Need to build all the other entry points so that other classes are also parsed!! *)
     let (prta,_) = JRTA.parse_program
-      ~instantiated:[]
-      ~other_entrypoints:[make_cms (make_cn "com.jopdesign.sys.Startup")
-			     (make_ms "boot" [] None)]
-      cp (make_cms (make_cn cn) JProgram.main_signature) in
+		     ~instantiated:[]
+		     ~other_entrypoints:[make_cms (make_cn "com.jopdesign.sys.Startup")
+						  (make_ms "boot" [] None)]
+		     cp (make_cms (make_cn cn) JProgram.main_signature) in
     (* Convert it into JBIR format *)
     let pbir = JProgram.map_program2
-      (fun _ -> transform ~bcv:false ~ch_link:false) 
-      (Some (fun code pp -> (pc_ir2bc code).(pp)))
-      prta in
+		 (fun _ -> transform ~bcv:false ~ch_link:false) 
+		 (Some (fun code pp -> (pc_ir2bc code).(pp)))
+		 prta in
 
     (* TODO: Dump a file with line numbers at bytecode level and the
        places where checkpoints need to be inserted.*)
     let callgraph = JProgram.get_callgraph_from_entries
-      (* prta [(make_cms (make_cn cn) JProgram.main_signature)] in *)
-      prta [(make_cms (make_cn cn) (make_ms "start" [] None))] in
+		      (* prta [(make_cms (make_cn cn) JProgram.main_signature)] in *)
+		      prta [(make_cms (make_cn cn) (make_ms "start" [] None))] in
     (if not (List.is_empty callgraph) then
-	let () = JProgram.store_callgraph callgraph "/tmp/Callgraph.txt" in
-	raise (Not_supported "Only a single method allowed, please inline manually, see /tmp/Callgraph.txt"));
+       let () = JProgram.store_callgraph callgraph "/tmp/Callgraph.txt" in
+       raise (Not_supported "Only a single method allowed, please inline manually, see /tmp/Callgraph.txt"));
     let methods_to_explore = [((make_cn cn), (make_ms "start" [] None))]  in
     (* TODO: For each of the methods load them and dump the checkpoint
        line number at Bytecode level*)
@@ -672,24 +696,24 @@ let main =
       (* XXX: We need to manually calculate the bytecode offset at the
 	 lower level bytecode representation!! *)
       List.map2 (fun a (cn, ms) ->
-	Array.map (function
-    	| Some x ->
-	   let llc = JFile.get_class_low (JFile.class_path cp) cn in
-	   let cnn = JLow2High.low2high_class llc in
-	   let cpool = get_class (class_path cp) cn |> get_consts in
-	   let cpool = DynArray.init (Array.length cpool) (fun i -> cpool.(i)) in
-	   let m = JHigh2Low.h2l_acmethod cpool (JClass.get_method cnn ms) in
-	   let mcode = List.map
-	     (function
-	     | JL.AttributeCode x -> Some (Lazy.force x)
-	     | _ -> None) m.JL.m_attributes
-	|> List.filter (function Some x -> true | _ -> false)
-	|> List.hd in
-	   let mcode = match mcode with
-	     | Some x -> x.JL.c_code
-	     | None -> raise (Internal ("Unexpected type")) in
-	   Some (x + LW.get_size mcode.(x))
-	| None -> None) a) possible_checkpoints methods_to_explore in
+		 Array.map (function
+    			     | Some x ->
+				let llc = JFile.get_class_low (JFile.class_path cp) cn in
+				let cnn = JLow2High.low2high_class llc in
+				let cpool = get_class (class_path cp) cn |> get_consts in
+				let cpool = DynArray.init (Array.length cpool) (fun i -> cpool.(i)) in
+				let m = JHigh2Low.h2l_acmethod cpool (JClass.get_method cnn ms) in
+				let mcode = List.map
+					      (function
+						| JL.AttributeCode x -> Some (Lazy.force x)
+						| _ -> None) m.JL.m_attributes
+					    |> List.filter (function Some x -> true | _ -> false)
+					    |> List.hd in
+				let mcode = match mcode with
+				  | Some x -> x.JL.c_code
+				  | None -> raise (Internal ("Unexpected type")) in
+				Some (x + LW.get_size mcode.(x))
+			     | None -> None) a) possible_checkpoints methods_to_explore in
 
     (* (\* XXX:  DEBUG *\) *)
     (* let () = print_endline "IF AND LOOP FIRST BB CHECKPOINTS" in *)
@@ -716,19 +740,29 @@ let main =
     (* TODO:  Now compute the wcet with the loop-bounds! *)
     let bound_list = List.map (get_loops cp l) method_cfgs in
     let bound_list =
-      (List.map (fun l ->
-	List.map
-	  (function
-	  | (Some x, Some y, z) -> (x,y,z)
-	  | _ -> raise (Internal "")) l )) bound_list in
+      List.map (fun l ->
+		List.map
+		  (function
+		    | (Some x, Some y, z) -> (x,y,z)
+		    | _ -> raise (Internal "Unitialized loop bounds")) l ) bound_list in
     (* TODO:  Update the wcet values with the loop_bounds *)
-    let () = List.iter (update_wcet bound_list) method_cfgs in
+    let () = List.iter2 (update_wcet []) bound_list method_cfgs in
     (* TODO:  Computed the wcrc of the edges, this function is side-effecting*)
     (* FIXME:  This function should also include the wcet loop iteration #!*)
     ignore(List.map (cfg_wcrc []) method_cfgs);
     (* TODO:  Now add the checkpoint to the edges *)
     let () = List.iter2 (add_chkpt []) possible_checkpoints method_cfgs in
-    List.iter (CFG.print_cfg []) method_cfgs
+    (* XXX:  DEBUG*)
+    (* List.iter (CFG.print_cfg []) method_cfgs; *)
+    let wcet =
+      List.map (fun cfg ->
+		match (List.hd cfg.CFG.o) with
+		| CFG.Edge(_,_,Some x,_) -> x
+		| _ -> raise (Internal "Cannot get the wcet!")) method_cfgs in
+    (* XXX:  DEBUG*)
+    List.iter (print_endline >> string_of_int) wcet;
+  (* TODO: Now we need to insert Native.wcrc into the method at the
+    checkpoint bytecode along with the wcrc value *)
   with
   | NARGS -> ()
-     
+	       
