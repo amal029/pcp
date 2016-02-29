@@ -753,14 +753,14 @@ let main =
     (* TODO:  Now add the checkpoint to the edges *)
     let () = List.iter2 (add_chkpt []) possible_checkpoints method_cfgs in
     (* XXX:  DEBUG*)
-    (* List.iter (CFG.print_cfg []) method_cfgs; *)
-    let wcet =
+    List.iter (CFG.print_cfg []) method_cfgs;
+    let _ =
       List.map (fun cfg ->
 		match (List.hd cfg.CFG.o) with
 		| CFG.Edge(_,_,Some x,_) -> x
 		| _ -> raise (Internal "Cannot get the wcet!")) method_cfgs in
     (* XXX:  DEBUG*)
-    List.iter (print_endline >> string_of_int) wcet;
+    (* List.iter (print_endline >> string_of_int) wcet; *)
     (* TODO: Now we need to insert Native.wcrc into the method at the
        checkpoint bytecode along with the wcrc value *)
     let rec get_checkpts visited cfg = 
@@ -781,31 +781,35 @@ let main =
 		   (get_checkpts (d :: visited) d)
 	       else []) cfg.CFG.o |> List.flatten in
     let checkpts_assoc_list = List.map (get_checkpts []) method_cfgs in
-    (* TODO:  Change the method bytecode! *)
-    let rec update_branches index code =
+    (* FIXME:  Change the method bytecode! *)
+    let rec update_branches doit start index code =
       let () = (print_endline >> string_of_int) index in
-      List.map
-	(function
-	  | OpIfCmp (xx,target) as s ->
-	     let () = (print_endline >> string_of_int) target in
-	     let () = JPrint.jopcode s |> print_endline in
-	     if target >= index then
-	       OpIfCmp (xx, target+5)
-	     else s
-	  | OpIf (xx, target) as s ->
-	     let () = (print_endline >> string_of_int) target in
-	     let () = JPrint.jopcode s |> print_endline in
-	     if target >= index then
-	       OpIf (xx, target+5)
-	     else s
-	  | OpGoto target as s ->
-	     if target >= index then
-	       OpGoto (target + 5)
-	     else s
-	  | OpTableSwitch _
-	  | OpLookupSwitch _ -> raise (Not_supported "Class switch statements not supported")
-	  | _ as s -> s
-	) code
+      List.mapi
+	(fun i code ->
+	 match code with
+	 | OpIfCmp (xx,target) as s ->
+	    if (not doit) && (i+target+start) > index then
+	      OpIfCmp (xx, target+5)
+	    else if doit && ((target+start+i) < index) then
+	      OpIfCmp(xx, target-5)
+	    else s
+	 | OpIf (xx, target) as s ->
+	    if (not doit) && (target+i+start) > index then
+	      OpIf (xx, target+5)
+	    else if doit && ((target+start+i) < index) then
+	      OpIf(xx, target-5)
+	    else s
+	 | OpGoto target as s ->
+	    let () = JPrint.jopcode s |> print_endline in
+	    if (not doit) && (target+i+start) > index then
+	      OpGoto (target + 5)
+	    else if doit && ((target+start+i) < index) then
+	      OpGoto (target - 5)
+	    else s
+	 | OpTableSwitch _
+	 | OpLookupSwitch _ -> raise (Not_supported "Class switch statements not supported")
+	 | _ as s -> s)
+	code
     in
     let prta =
       List.fold_left2
@@ -825,9 +829,9 @@ let main =
 		       OpInvalid; OpInvalid; (* 3 bytes *)
 		     ] in
 		   let p_code, n_code = List.takedrop (i+count) (Array.to_list jcode) in
-		   (Array.of_list ((update_branches i p_code) @ new_code @ (update_branches i n_code)),
-		    count+5)
-		  ) (code.c_code, 0) achkp in
+		   (Array.of_list ((update_branches false 0 (i+count) p_code) @ new_code @
+				     (update_branches true (i+count) (i+count) n_code)),
+		    count+5)) (code.c_code, 0) achkp in
 	      {code with c_code = jcode}
 	    else code) None p) prta methods_to_explore checkpts_assoc_list in
     (* Output *)
