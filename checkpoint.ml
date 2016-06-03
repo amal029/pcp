@@ -748,19 +748,19 @@ let main =
     (* TODO:  Update the wcet values with the loop_bounds *)
     let () = List.iter2 (update_wcet []) bound_list method_cfgs in
     (* TODO:  Computed the wcrc of the edges, this function is side-effecting*)
-    (* FIXME:  This function should also include the wcet loop iteration #!*)
     ignore(List.map (cfg_wcrc []) method_cfgs);
     (* TODO:  Now add the checkpoint to the edges *)
     let () = List.iter2 (add_chkpt []) possible_checkpoints method_cfgs in
     (* XXX:  DEBUG*)
-    List.iter (CFG.print_cfg []) method_cfgs;
-    let _ =
+    (*List.iter (CFG.print_cfg []) method_cfgs;*)
+    let wcet =
       List.map (fun cfg ->
 		match (List.hd cfg.CFG.o) with
 		| CFG.Edge(_,_,Some x,_) -> x
 		| _ -> raise (Internal "Cannot get the wcet!")) method_cfgs in
     (* XXX:  DEBUG*)
-    (* List.iter (print_endline >> string_of_int) wcet; *)
+    print_endline "WCET IS: ";
+    List.iter (print_endline >> string_of_int) wcet;
     (* TODO: Now we need to insert Native.wcrc into the method at the
        checkpoint bytecode along with the wcrc value *)
     let rec get_checkpts visited cfg = 
