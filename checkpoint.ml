@@ -609,11 +609,11 @@ let get_loops cp l cfg =
 		   if List.length res = 1 then
 		     List.hd res
 		   else
-		     let () = (string_of_int lpps) ^ "," ^ (string_of_int lppe) |> print_endline in
-		     let () = (print_endline >> string_of_int >> List.length) res in
-		     let () = List.iter (fun (x,y) ->
-					 (print_string >> ((^) " ") >> string_of_int) x;
-					 (print_endline >> ((^) " ") >> string_of_int) y) res in
+		     (* let () = (string_of_int lpps) ^ "," ^ (string_of_int lppe) |> print_endline in *)
+		     (* let () = (print_endline >> string_of_int >> List.length) res in *)
+		     (* let () = List.iter (fun (x,y) -> *)
+		     (* 			 (print_string >> ((^) " ") >> string_of_int) x; *)
+		     (* 			 (print_endline >> ((^) " ") >> string_of_int) y) res in *)
 		     raise (Internal "More than one loop bound detected!") in
 		 [(d.CFG.lpps, s.CFG.lppe, bound)]
 	       else
@@ -752,7 +752,7 @@ let main =
     (* TODO:  Now add the checkpoint to the edges *)
     let () = List.iter2 (add_chkpt []) possible_checkpoints method_cfgs in
     (* XXX:  DEBUG*)
-    (*List.iter (CFG.print_cfg []) method_cfgs;*)
+    List.iter (CFG.print_cfg []) method_cfgs;
     let wcet =
       List.map (fun cfg ->
 		match (List.hd cfg.CFG.o) with
@@ -783,7 +783,7 @@ let main =
     let checkpts_assoc_list = List.map (get_checkpts []) method_cfgs in
     (* FIXME:  Change the method bytecode! *)
     let rec update_branches doit start index code =
-      let () = (print_endline >> string_of_int) index in
+      (* let () = (print_endline >> string_of_int) index in *)
       List.mapi
 	(fun i code ->
 	 match code with
@@ -800,7 +800,7 @@ let main =
 	      OpIf(xx, target-5)
 	    else s
 	 | OpGoto target as s ->
-	    let () = JPrint.jopcode s |> print_endline in
+	    (* let () = JPrint.jopcode s |> print_endline in *)
 	    if (not doit) && (target+i+start) > index then
 	      OpGoto (target + 5)
 	    else if doit && ((target+start+i) < index) then

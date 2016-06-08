@@ -33,7 +33,7 @@ let rec print_cfg visited cfg =
   let () = print_string ((string_of_int cfg.pps)
 		 ^ "--" ^ (string_of_int cfg.ppe) ^ ", ") in
   let () = print_string (get_lpps_lppe cfg.lpps ^ "--" ^ get_lpps_lppe cfg.lppe) in
-  (* let () = (print_string >> ((^)" ") >> string_of_int) cfg.wcet in *)
+  let () = (print_string >> ((^)" ") >> string_of_int) cfg.wcet in
 
   let () =
     List.iter (function | Edge (_,d,w,chkp) ->
@@ -42,12 +42,12 @@ let rec print_cfg visited cfg =
 			     ^ (string_of_int d.ppe)) in
       let () =
 	print_string (": " ^
-			 (match w with | None -> "Back edge"
-			 | Some x -> (string_of_int x))) in
+			(match w with | None -> "Back edge"
+				 | Some x -> (string_of_int x))) in
       print_string (
-	match chkp with
-	| None -> ", No checkpoint"
-	| Some x -> ", " ^ (string_of_int x))) cfg.o in
+	  match chkp with
+	  | None -> ", No checkpoint"
+	  | Some x -> ", " ^ (string_of_int x))) cfg.o in
   let () = print_endline "\n" in
   List.iter
     (function
