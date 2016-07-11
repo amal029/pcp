@@ -451,7 +451,6 @@ let get_bytecode_nums pbir (cn, ms) =
   | Not_found -> raise (Internal ("Cannot find class_method:" ^ (cn_name cn) ^"."^ (ms_name ms)))
   | JControlFlow.PP.NoCode (cn, ms) -> Array.make 1 None
 
-(* FIXME:  This is without loops! *)
 let rec cfg_wcrc visited cfg = 
   if List.is_empty cfg.CFG.o then
     cfg.CFG.wcet
@@ -620,14 +619,15 @@ let get_loops cp l cfg =
 		 get_bound_list (d :: visited) d) cfg.CFG.o in
       List.flatten blist in
   let bound_list = get_bound_list [] cfg in
-  (* (\* XXX:  DEBUG *\) *)
-  (* let () = print_endline "Printing loop bounds" in *)
-  (* let () = *)
-  (*   List.iter *)
-  (*     (function *)
-  (* 	| (Some x, Some y, z) -> "(" ^ (string_of_int x) ^ ", " ^ (string_of_int y) ^ ", " ^ (string_of_int z) ^ ")" *)
-  (* 				 |> print_endline *)
-  (* 	| _ -> raise (Internal "Cannot find loop bounds!")) bound_list in *)
+  (* XXX:  DEBUG *)
+  let () = print_endline "Printing loop bounds" in
+  let () =
+    List.iter
+      (function
+  	| (Some x, Some y, z) -> 
+	"(" ^ (string_of_int x) ^ ", " ^ (string_of_int y) ^ ", " ^ (string_of_int z) ^ ")"
+  				 |> print_endline
+  	| _ -> raise (Internal "Cannot find loop bounds!")) bound_list in
   bound_list
 
 
@@ -645,11 +645,18 @@ let rec update_wcet visited blist cfg =
     | None -> false in
   (* TODO: First get the bounds that apply to this basic block*)
   let multiplicand =
+    print_endline "\n";
+    print_endline ("lpps, lppe: " ^ (string_of_int lpps) ^ "," ^ (string_of_int lppe));
     List.fold_left
       (fun v bound ->
        match bound with
-       | (s,e,b) -> if lpps >= s && lppe < e then v*b else v) 1 blist in
+       | (s,e,b) ->
+	  print_endline ("s, e: " ^ (string_of_int s) ^ "," ^ (string_of_int e));
+	  if lpps >= s && lppe <= e then v*b else v) 1 blist in
+  print_endline ("Multiplicand: " ^ (string_of_int multiplicand));
+  print_endline ("wcet before multiplying: " ^ (string_of_int cfg.CFG.wcet));
   cfg.CFG.wcet <- cfg.CFG.wcet * multiplicand;
+  print_endline ("wcet after multiplying: " ^ (string_of_int cfg.CFG.wcet));
   (* XXX: Recurse if this is not a back-edge*)
   List.iter
     (function
