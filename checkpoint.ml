@@ -752,6 +752,7 @@ let main =
 		  (function
 		    | (Some x, Some y, z) -> (x,y,z)
 		    | _ -> raise (Internal "Unitialized loop bounds")) l ) bound_list in
+    let bound_list = List.map (fun l -> BatList.unique l) bound_list in
     (* TODO:  Update the wcet values with the loop_bounds *)
     let () = List.iter2 (update_wcet []) bound_list method_cfgs in
     (* TODO:  Computed the wcrc of the edges, this function is side-effecting*)
