@@ -496,9 +496,8 @@ let rec method_wcet pbir cp visited mm cfg =
     | Some x -> x.JL.c_code
     | None -> raise (Internal ("Unexpected type")) in
 
-  (* TODO: Now get the program
-  points at the bytecode level for
-  this basic block *)
+  (* TODO: Now get the program points at the bytecode level for this
+  basic block *)
   let bir = JControlFlow.PP.get_first_pp pbir cfg.CFG.cn cfg.CFG.ms
 	    |> JControlFlow.PP.get_ir in
   (* FIXME:  Check what happens when pps = 0? *)
