@@ -39,7 +39,8 @@ let get_wcet_method cms mm =
     BatNum.to_int i + BatNum.to_int m
   else
     let (cn, ms) = (cms_split cms) in
-    raise (Internal ("Cannot find the cms: " ^ (cn_name cn) ^ "." ^ (ms_name ms) ^ " in method-wcet cache!"))
+    raise (Internal ("Cannot find the cms: "
+                     ^ (cn_name cn) ^ "." ^ (ms_name ms) ^ " in method-wcet cache!"))
 
 let get_wcrc code mm const_pool = 
   (* TODO:  Now we convert the code into micro-code and then compute the wcrc *)
@@ -125,7 +126,8 @@ let get_wcrc code mm const_pool =
        | `Long -> 
 	  let mn = make_ms "f_lmul" [(TBasic `Long);(TBasic `Long)] (Some (TBasic `Long)) in
 	  let m_wcet = get_wcet_method (make_cms (make_cn LW.bj1) mn) mm in
-	 (* XXX:  Should I add the time to load the callee and then load the caller into cache here! *)
+	 (* XXX:  Should I add the time to load the callee 
+            and then load the caller into cache here! *)
 	  x + Array.length LW.invokestatic_mc + m_wcet
        | `Float -> raise (LW.Opcode_Java_Implemented (JDumpLow.opcode op))
        | _ -> x + 35) (* Note that imul never accesses external memory!! *)
@@ -135,7 +137,8 @@ let get_wcrc code mm const_pool =
        | _ -> 
 	  let mn = make_ms "f_idiv" [(TBasic `Int);(TBasic `Int)] (Some (TBasic `Int)) in
 	  let m_wcet = get_wcet_method (make_cms (make_cn LW.bj1) mn) mm in
-	    (* XXX:  Should I add the time to load the callee and then load the caller into cache here! *)
+	    (* XXX:  Should I add the time to load the callee 
+               and then load the caller into cache here! *)
 	  x + Array.length LW.invokestatic_mc + m_wcet)
     | JL.OpRem xx as op ->
        (match xx with
@@ -143,20 +146,24 @@ let get_wcrc code mm const_pool =
        | _ -> 
 	  let mn = make_ms "f_irem" [(TBasic `Int);(TBasic `Int)] (Some (TBasic `Int)) in
 	  let m_wcet = get_wcet_method (make_cms (make_cn LW.bj1) mn) mm in
-	    (* XXX:  Should I add the time to load the callee and then load the caller into cache here! *)
+	    (* XXX:  Should I add the time to load the 
+               callee and then load the caller into cache here! *)
 	  x + Array.length LW.invokestatic_mc + m_wcet)
     | JL.OpNeg xx as op ->
        (match xx with 
-       | `Long -> x + Array.length (Array.append [|Ldi;Xor;Stm;Ldi;Xor;Ldm;Ldi;Ldi|] LW.long_add)
+       | `Long -> x + Array.length
+          (Array.append [|Ldi;Xor;Stm;Ldi;Xor;Ldm;Ldi;Ldi|] LW.long_add)
        | `Double -> raise (LW.Opcode_Not_Implemented (JDumpLow.opcode op))
        | `Float -> raise (LW.Opcode_Java_Implemented (JDumpLow.opcode op))
        | _ -> x + Array.length [|Ldi;Xor;Ldi;Add|]) 
     | JL.OpIShl -> x + 1
     | JL.OpIShr -> x + 1
     | JL.OpIUShr -> x + 1
-    | JL.OpLShl -> x + Array.length (Array.append (Array.append LW.lshl LW.lshl_not0) LW.lshl_le31)
+    | JL.OpLShl -> x + Array.length
+       (Array.append (Array.append LW.lshl LW.lshl_not0) LW.lshl_le31)
     | JL.OpLShr -> x + Array.length (Array.append LW.lshr LW.lshr_le31)
-    | JL.OpLUShr -> x + Array.length (Array.append (Array.append LW.lushr LW.lushr_le31) LW.lushr_not0)
+    | JL.OpLUShr -> x + Array.length
+       (Array.append (Array.append LW.lushr LW.lushr_le31) LW.lushr_not0)
     | JL.OpIAnd | JL.OpIOr | JL.OpIXor -> x + 1
     | JL.OpLAnd -> x + Array.length [|Stm;Stm;Stm;Ldm;And;Ldm;Ldm;And|]
     | JL.OpLOr -> x + Array.length [|Stm;Stm;Stm;Ldm;Or;Ldm;Ldm;Or|]
@@ -173,13 +180,15 @@ let get_wcrc code mm const_pool =
     | JL.OpD2F -> 
        let mn = make_ms "f_d2f" [(TBasic `Long)] (Some (TBasic `Int)) in
        let m_wcet = get_wcet_method (make_cms (make_cn LW.bj1) mn) mm in
-	 (* XXX:  Should I add the time to load the callee and then load the caller into cache here! *)
+	 (* XXX:  Should I add the time to 
+            load the callee and then load the caller into cache here! *)
        x + Array.length LW.invokestatic_mc + m_wcet
     | JL.OpD2L as op -> raise (LW.Opcode_Java_Implemented (JDumpLow.opcode op))
     | JL.OpI2B -> 
        let mn = make_ms "f_i2b" [(TBasic `Int)] (Some (TBasic `Int)) in
        let m_wcet = get_wcet_method (make_cms (make_cn LW.bj1) mn) mm in
-	 (* XXX:  Should I add the time to load the callee and then load the caller into cache here! *)
+	 (* XXX:  Should I add the time to load 
+            the callee and then load the caller into cache here! *)
        x + Array.length LW.invokestatic_mc + m_wcet
       (* raise (LW.Opcode_Java_Implemented (JDumpLow.opcode op)) *)
     | JL.OpI2F as op -> raise (LW.Opcode_Java_Implemented (JDumpLow.opcode op))
@@ -187,9 +196,11 @@ let get_wcrc code mm const_pool =
     | JL.OpI2D as op -> raise (LW.Opcode_Not_Implemented (JDumpLow.opcode op))
     | JL.OpIInc _ -> x + Array.length [|Ldvp;Ld_opd_8u;Add;Star;Ld_opd_8u;Ldmi;Stmi|]
     | JL.OpLCmp -> 
-       let mn = make_ms "f_lcmp" [(TBasic `Int);(TBasic `Int);(TBasic `Int);(TBasic `Int)] (Some (TBasic `Int)) in
+       let mn = make_ms "f_lcmp"
+         [(TBasic `Int);(TBasic `Int);(TBasic `Int);(TBasic `Int)] (Some (TBasic `Int)) in
        let m_wcet = get_wcet_method (make_cms (make_cn LW.bj1) mn) mm in
-	 (* XXX:  Should I add the time to load the callee and then load the caller into cache here! *)
+	 (* XXX:  Should I add the time to 
+            load the callee and then load the caller into cache here! *)
        x + Array.length LW.invokestatic_mc + m_wcet
     | JL.OpFCmpL as op -> raise (LW.Opcode_Java_Implemented (JDumpLow.opcode op))
     | JL.OpFCmpG as op -> raise (LW.Opcode_Java_Implemented (JDumpLow.opcode op))
@@ -256,7 +267,8 @@ let get_wcrc code mm const_pool =
 	     (match xx with
 	     | `Long ->
 		x + Array.length [|Dup;Nop;Bz;Nop;Nop;Stmraf;Wait;Wait;Ldmrd;Nop;
-				   Nop;Ld_opd_16u;Add;Dup;Stmraf;Ldi;Add;Stm;Wait;Wait;Ldmrd;Ldm;Stmraf;Wait;Wait;Ldmrd;
+				   Nop;Ld_opd_16u;Add;Dup;Stmraf;Ldi;Add;
+                                   Stm;Wait;Wait;Ldmrd;Ldm;Stmraf;Wait;Wait;Ldmrd;
 				 |]
 	     | _ -> x + Array.length [|Stgf;Nop;Wait;Wait;Ldmrd;|])
 	  | _ -> x + Array.length [|Stgf;Nop;Wait;Wait;Ldmrd;|])
@@ -274,20 +286,23 @@ let get_wcrc code mm const_pool =
 	       Nop; Ld_opd_16u; Ldm; Jmp; Nop; Nop
 				      |])
 	  | _ -> x + Array.length [|Ldjpc;
-				    Ldi;Sub;Stjpc;Nop;Nop;Ldm;Nop;Ld_opd_8u;Ldi;And;Dup;Add;Add;Stm;Nop;Nop;Ld_opd_16u;Ldm;Jmp;Nop;Nop
+				    Ldi;Sub;Stjpc;Nop;Nop;Ldm;Nop;Ld_opd_8u;
+                                    Ldi;And;Dup;Add;Add;Stm;Nop;Nop;Ld_opd_16u;Ldm;Jmp;Nop;Nop
 				  |])
        | OpPutStatic (_,xx) ->
 	  (match (fs_type xx) with
 	  | TBasic xx ->
 	     (match xx with
-	     | `Long -> x + Array.length [|Stm;Stm;Ld_opd_16u;Dup;Stmwa;Ldm;Stmwd;Ldi;Add;Wait;Wait;
+	     | `Long -> x + Array.length [|Stm;Stm;Ld_opd_16u;Dup;Stmwa;
+                                           Ldm;Stmwd;Ldi;Add;Wait;Wait;
 					   Stmwa;Ldm;Stmwd;Wait;Wait;Nop|]
 	     | _ -> x + Array.length [|
 	       Ldjpc;Ldi;Sub;Stjpc;Nop;Nop;Ldm;Nop;Ld_opd_8u;Ldi;And;Dup;Add;Add;Stm;Nop;Nop;
 	       Ld_opd_16u;Ldm;Jmp;Nop;Nop
 				     |])
 	  | _ -> x + Array.length [|Ldjpc;Ldi;Sub;
-				    Stjpc;Nop;Nop;Ldm;Nop;Ld_opd_8u;Ldi;And;Dup;Add;Add;Stm;Nop;Nop;	Ld_opd_16u;Ldm;Jmp;Nop;Nop
+				    Stjpc;Nop;Nop;Ldm;Nop;Ld_opd_8u;Ldi;And;
+                                    Dup;Add;Add;Stm;Nop;Nop;Ld_opd_16u;Ldm;Jmp;Nop;Nop
 				  |])
        | OpInvoke (xx,ms) as op ->
 	  (match xx with
@@ -507,14 +522,20 @@ let rec method_wcet pbir cp visited mm cfg =
 		       bb + LW.get_size mcode.(bb) in
   let bytecode_ppe = (pc_ir2bc bir).(cfg.CFG.ppe) in
   let bytecode_ppe = bytecode_ppe + LW.get_size mcode.(bytecode_ppe) in
+  (* print_endline "HUHU"; *)
+  (* print_endline ((string_of_int bytecode_pps) ^ " " ^ (string_of_int bytecode_ppe)); *)
   cfg.CFG.lpps <- Some bytecode_pps;
   cfg.CFG.lppe <- Some bytecode_ppe;
   (* XXX: Now I have the program points at the low-level to calculate
   the wcet of this basic block *)
   let mcode = Array.enum mcode
 	      |> Enum.skip bytecode_pps
-	      |> Enum.take bytecode_ppe in
-  cfg.CFG.wcet <- get_wcrc mcode mm cpool;
+	      |> Enum.take (bytecode_ppe - bytecode_pps) in
+  (* Dump the code in mcode *)
+  (* let () = Enum.iter (fun x -> print_endline (JDumpLow.opcode x)) (Enum.clone mcode) in *)
+  let rr = get_wcrc mcode mm cpool in
+  (* print_endline ("wcrc is: " ^ (string_of_int rr)); *)
+  cfg.CFG.wcet <- rr;
   List.iter
     (function
       | CFG.Edge (s,d,_,_) ->
@@ -632,6 +653,7 @@ let get_loops cp l cfg =
 
 (* This function updates the wcet values with the loop bounds *)
 let rec update_wcet visited blist cfg =
+  visited := (cfg :: !visited);
   let lpps = match cfg.CFG.lpps with
     | Some x -> x
     | None -> raise (Internal "lpps not initialized") in
@@ -639,7 +661,7 @@ let rec update_wcet visited blist cfg =
     | Some x -> x
     | None -> raise (Internal "lppe not initialized") in
   let is_back_edge d =
-    match List.Exceptionless.find ((==) d) visited with
+    match List.Exceptionless.find ((==) d) !visited with
     | Some x -> true
     | None -> false in
   (* TODO: First get the bounds that apply to this basic block*)
@@ -661,7 +683,7 @@ let rec update_wcet visited blist cfg =
     (function
       | CFG.Edge (_,d,_,_) ->
 	 if not (is_back_edge d) then
-           update_wcet (d :: visited) blist d) cfg.CFG.o
+           update_wcet visited blist d) cfg.CFG.o
   
 let main = 
   try
@@ -672,7 +694,9 @@ let main =
       ] in
     let () = Arg.parse speclist (fun x -> DynArray.add args x) (usage_msg^"\n[OPTION]:") in
     let (cp, cn) = 
-      if DynArray.length args <> 2 then let () = print_endline usage_msg; Arg.usage speclist "[OPTION]:" in exit 1
+      if DynArray.length args <> 2 then
+        let () = print_endline usage_msg;
+          Arg.usage speclist "[OPTION]:" in exit 1
       else (DynArray.get args 0,DynArray.get args 1) in
     (* Need to build all the other entry points so that other classes are also parsed!! *)
     let (prta,_) = JRTA.parse_program
@@ -753,7 +777,7 @@ let main =
 		    | _ -> raise (Internal "Unitialized loop bounds")) l ) bound_list in
     let bound_list = List.map (fun l -> BatList.unique l) bound_list in
     (* TODO:  Update the wcet values with the loop_bounds *)
-    let () = List.iter2 (update_wcet []) bound_list method_cfgs in
+    let () = List.iter2 (update_wcet (ref [])) bound_list method_cfgs in
     (* TODO:  Computed the wcrc of the edges, this function is side-effecting*)
     ignore(List.map (cfg_wcrc []) method_cfgs);
     (* TODO:  Now add the checkpoint to the edges *)
