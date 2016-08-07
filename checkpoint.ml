@@ -444,8 +444,8 @@ let get_bytecode_nums pbir (cn, ms) =
     let lnums = Array.mapi
       (fun i x ->
 	match x with
-	| Ifd ((_,_,_),g) -> Some (pc_ir2bc bir).(g-1)
-	| _ -> None) (code bir) in
+	| Ifd ((_,_,_),g) -> [Some (pc_ir2bc bir).(g-1); Some (pc_ir2bc bir).(i)]
+	| _ -> [None]) (code bir) in
     (* TODO:  Now get the pps for the loops and add it to lnums *)
     let loop_fbbnums = Array.mapi
       (fun i x ->
@@ -461,7 +461,7 @@ let get_bytecode_nums pbir (cn, ms) =
 	    None
 	else
 	  None) (preds bir) in
-    Array.append lnums loop_fbbnums
+    Array.append (Array.to_list lnums |> List.flatten |> Array.of_list) loop_fbbnums
   with
   | Not_found -> raise (Internal ("Cannot find class_method:" ^ (cn_name cn) ^"."^ (ms_name ms)))
   | JControlFlow.PP.NoCode (cn, ms) -> Array.make 1 None
@@ -599,7 +599,8 @@ let get_loops cp l cfg =
   				    ^ " does not have loop bounds!")) in
   let bounds = DynArray.to_list bounds |> List.map (fun (x,y) -> ((int_of_string x),(int_of_string y))) in
   (* TODO:  attach the bytecode to the loop-bound *)
-  let bounds = List.map (fun (x,y) -> let (_,b) = List.find (fun (s, _) -> x = s) lnt in (b,y)) bounds in
+  let bounds = List.map (fun (x,y) ->
+			 let (_,b) = List.find (fun (s, _) -> x = s) lnt in (b,y)) bounds in
   (* XXX:  DEBUG *)
   (* let () = print_endline "Printing the bounds" in *)
   (* let () = List.iter (fun (x,y) -> (string_of_int x) ^ ":" ^ (string_of_int y) |> print_endline) bounds in *)
