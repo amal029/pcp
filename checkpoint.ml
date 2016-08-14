@@ -433,6 +433,7 @@ let get_checkpoint_wcrc (mse, cps) mm cp =
 	 Some (get_wcrc mcode mm cpool)
       | _ as s -> s) chkp) cps mse
 
+(* This gives insertion points at the bytecode level *)
 let get_bytecode_nums pbir (cn, ms) = 
   try
     let first_pp = JControlFlow.PP.get_first_pp pbir cn ms in
@@ -461,7 +462,8 @@ let get_bytecode_nums pbir (cn, ms) =
 	    None
 	else
 	  None) (preds bir) in
-    Array.append (Array.to_list lnums |> List.flatten |> Array.of_list) loop_fbbnums
+    let ret = Array.append (Array.to_list lnums |> List.flatten |> Array.of_list) loop_fbbnums in
+    ret |> Array.to_list |> List.unique_hash |> Array.of_list
   with
   | Not_found -> raise (Internal ("Cannot find class_method:" ^ (cn_name cn) ^"."^ (ms_name ms)))
   | JControlFlow.PP.NoCode (cn, ms) -> Array.make 1 None
