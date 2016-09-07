@@ -749,13 +749,13 @@ let main =
 			     | None -> None) a) possible_checkpoints methods_to_explore in
 
     (* (\* XXX:  DEBUG *\) *)
-    (* let () = print_endline "IF AND LOOP FIRST BB CHECKPOINTS" in *)
-    (* let () = *)
-    (*   List.iter2 (fun a (cn, ms) -> *)
-    (* 	let () = print_endline ((cn_name cn) ^ "." ^ (ms_name ms)) in *)
-    (* 	Array.iter(function *)
-    (* 	| Some x -> x |> string_of_int |> print_endline *)
-    (* 	| None -> ()) a) possible_checkpoints methods_to_explore in *)
+    let () = print_endline "IF AND LOOP FIRST BB CHECKPOINTS" in
+    let () =
+      List.iter2 (fun a (cn, ms) ->
+    	let () = print_endline ((cn_name cn) ^ "." ^ (ms_name ms)) in
+    	Array.iter(function
+    	| Some x -> x |> string_of_int |> print_endline
+    	| None -> ()) a) possible_checkpoints methods_to_explore in
 
     (* TODO:  Now get the wcet of the various methods *)
     let method_cfgs =
@@ -851,6 +851,7 @@ let main =
 	 JProgram.map_program
 	   (fun cn ms code ->
 	    if (cn_equal mcn cn) && (ms_equal mms ms) then
+	      let achkp = BatList.unique_cmp achkp in
 	      let achkp = List.fast_sort (fun (i,_) (j,_) -> compare i j) achkp in
 	      let (jcode,_) =
 		List.fold_left
