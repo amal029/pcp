@@ -572,8 +572,24 @@ let rec add_chkpt visited chkpts (cfg, fbb) =
       (function
       | CFG.Edge (s,d,w,_) as e ->
 	 (* We need to change this part! *)
-	 if Array.exists ((=) d.CFG.lpps) chkpts then
-	   CFG.Edge(s,d,w,d.CFG.lpps)
+	 if Array.exists ((=) d.CFG.lpps) chkpts
+	 then
+	   let reachable = ref (!visited) in
+	   let () = get_fbb reachable d in
+	   (* DEBUG *)
+	   let () = match d.CFG.lpps, d.CFG.lppe with
+	     | Some x, Some y -> print_endline (string_of_int x);
+				 print_endline (string_of_int y)
+	     | _ -> () in
+	   let () = print_endline "HULU" in
+	   let () = List.iter (function
+				| (Some x, Some y) -> print_endline (string_of_int x);
+						      print_endline (string_of_int y)
+				| _ -> ()) (List.map (fun x -> (x.CFG.lpps, x.CFG.lppe))
+							!reachable) in
+	   if List.exists ((=) fbb) !reachable then
+	     CFG.Edge(s,d,w,d.CFG.lpps)
+	   else e
 	 else e) cfg.CFG.o in
   cfg.CFG.o <- edges;
   List.iter
