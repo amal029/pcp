@@ -546,10 +546,24 @@ let rec method_wcet pbir cp visited mm cfg =
 	 | None ->
 	    method_wcet pbir cp (cfg :: visited) mm d) cfg.CFG.o
   
-(* This function adds chkpts to the edges of the cfg *)
-let rec add_chkpt visited chkpts cfg = 
+let rec get_fbb visited cfg = 
+  visited := (cfg :: !visited);
   let is_back_edge d =
-    match List.Exceptionless.find ((==) d) visited with
+    match List.Exceptionless.find ((==) d) !visited with
+    | Some x -> true
+    | None -> false in
+
+  List.iter
+    (function
+    | CFG.Edge (_,d,_,_) ->
+       if not (is_back_edge d) then
+	 get_fbb visited d) cfg.CFG.o
+
+(* This function adds chkpts to the edges of the cfg *)
+let rec add_chkpt visited chkpts (cfg, fbb) = 
+  visited := cfg :: !visited;
+  let is_back_edge d =
+    match List.Exceptionless.find ((==) d) !visited with
     | Some x -> true
     | None -> false in
 
@@ -557,6 +571,7 @@ let rec add_chkpt visited chkpts cfg =
     List.map
       (function
       | CFG.Edge (s,d,w,_) as e ->
+	 (* We need to change this part! *)
 	 if Array.exists ((=) d.CFG.lpps) chkpts then
 	   CFG.Edge(s,d,w,d.CFG.lpps)
 	 else e) cfg.CFG.o in
@@ -565,7 +580,7 @@ let rec add_chkpt visited chkpts cfg =
     (function
     | CFG.Edge (_,d,_,_) ->
        if not (is_back_edge d) then
-	 add_chkpt (d :: visited) chkpts d) cfg.CFG.o
+	 add_chkpt visited chkpts (d, fbb)) cfg.CFG.o
 
 let get_loops cp l cfg =
   let llc = JFile.get_class_low (JFile.class_path cp) cfg.CFG.cn in
@@ -781,10 +796,16 @@ let main =
     let bound_list = List.map (fun l -> BatList.unique l) bound_list in
     (* TODO:  Update the wcet values with the loop_bounds *)
     let () = List.iter2 (update_wcet (ref [])) bound_list method_cfgs in
-    (* TODO:  Computed the wcrc of the edges, this function is side-effecting*)
+    (* TODO:  Computed the wcrc of the edges, this function is side-effecting *)
     ignore(List.map (cfg_wcrc []) method_cfgs);
+    (* Get the final BB *)
+    let bb_cmp c1 c2 = Pervasives.compare c1.CFG.lppe c2.CFG.lppe in
+    let fbbs = List.map (fun x ->
+			 let fbb = ref [] in
+			 let () = get_fbb fbb x in
+			 List.last (List.fast_sort bb_cmp !fbb)) method_cfgs in
     (* TODO:  Now add the checkpoint to the edges *)
-    let () = List.iter2 (add_chkpt []) possible_checkpoints method_cfgs in
+    let () = List.iter2 (add_chkpt (ref [])) possible_checkpoints (List.combine method_cfgs fbbs) in
     (* XXX:  DEBUG*)
     List.iter (CFG.print_cfg []) method_cfgs;
     let wcet =
